@@ -10,12 +10,14 @@ fn main() {
 
     // REPL
     while let Ok(_) = io::stdin().read_line(&mut input) {
-
         // Read
         cmd = input.trim();
 
-        // invalid input
-        println!("{cmd}: command not found");
+        // Eval
+        match cmd {
+            "exit" => std::process::exit(0),
+            _ => println!("{cmd}: command not found"), // invalid input
+        }
 
         // Restart
         input.clear();
