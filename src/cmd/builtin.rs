@@ -13,12 +13,19 @@ pub fn get_cmd(cmd: &str) -> Option<Cmd> {
 }
 
 fn cd(args: Args) -> Output {
-    let Some(path) = args.first() else {
-        return Default::default();
+    let path = match args.first() {
+        Some(path) => path,
+        None => "~", // Defaults to cd'ing home if no args
     };
 
+    // Resolve tilde '~' to $HOME
+    let Ok(home) = std::env::var("HOME") else {
+        return "cd: could not read $HOME\n".into();
+    };
+    let resolved_path = path.replace("~", &home);
+
     // Resolve to abs path and check if is dir
-    if let Ok(abs_path) = std::path::absolute(path)
+    if let Ok(abs_path) = std::path::absolute(&resolved_path)
         && let Ok(metadata) = std::fs::metadata(&abs_path)
         && metadata.is_dir()
     {
