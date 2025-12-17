@@ -21,7 +21,7 @@ impl fmt::Display for CmdError {
 }
 
 impl error::Error for CmdError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             CmdError::Io(err) => Some(err),
             _ => None,

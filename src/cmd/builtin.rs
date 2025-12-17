@@ -1,5 +1,6 @@
 use super::{Args, Cmd, Output};
 use crate::env;
+use crate::file;
 
 pub fn get_cmd(cmd: &str) -> Option<Cmd> {
     match cmd {
@@ -18,23 +19,11 @@ fn cd(args: Args) -> Output {
         None => "~", // Defaults to cd'ing home if no args
     };
 
-    // Resolve tilde '~' to $HOME
-    let Ok(home) = std::env::var("HOME") else {
-        return "cd: could not read $HOME\n".into();
-    };
-    let resolved_path = path.replace("~", &home);
-
-    // Resolve to abs path and check if is dir
-    if let Ok(abs_path) = std::path::absolute(&resolved_path)
-        && let Ok(metadata) = std::fs::metadata(&abs_path)
-        && metadata.is_dir()
+    if let Ok(abs_path) = file::resolve_path(path)
+        && let Ok(_) = std::env::set_current_dir(abs_path)
     {
-        // Change to dir
-        return match std::env::set_current_dir(abs_path) {
-            Ok(_) => Default::default(),
-            Err(err) => format!("cd: could not change directory to {path}: {err}\n").into(),
-        };
-    };
+        return Default::default();
+    }
 
     format!("cd: {path}: No such file or directory\n").into()
 }
