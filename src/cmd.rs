@@ -1,6 +1,5 @@
-use std::{fs, os::unix::fs::PermissionsExt};
-
 use crate::env;
+use crate::file;
 
 type Args<'a> = Vec<&'a str>;
 type Cmd = fn(Args) -> String;
@@ -21,15 +20,13 @@ fn get_cmd_builtin(cmd: &str) -> Option<Cmd> {
     }
 }
 
-/// Returns an Option containing the path if the command exists in paths, is a file and is executable
 fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
     for path in paths {
         let fullpath = format!("{path}/{cmd}");
-        let Ok(metadata) = fs::metadata(&fullpath) else {
+        let Ok(executable) = file::is_executable_file(&fullpath) else {
             continue;
         };
-        let executable = 0o111;
-        if metadata.is_file() && metadata.permissions().mode() & executable != 0 {
+        if executable {
             return Some(fullpath);
         }
     }
