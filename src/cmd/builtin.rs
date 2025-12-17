@@ -17,23 +17,19 @@ fn cd(args: Args) -> Output {
         return Default::default();
     };
 
-    let err_msg = format!("cd: {path}: No such file or directory\n").into();
-
-    // Abs path
-    let Ok(metadata) = std::fs::metadata(path) else {
-        return err_msg;
+    // Resolve to abs path and check if is dir
+    if let Ok(abs_path) = std::path::absolute(path)
+        && let Ok(metadata) = std::fs::metadata(&abs_path)
+        && metadata.is_dir()
+    {
+        // Change to dir
+        return match std::env::set_current_dir(abs_path) {
+            Ok(_) => Default::default(),
+            Err(err) => format!("cd: could not change directory to {path}: {err}\n").into(),
+        };
     };
 
-    // Not directory
-    if !metadata.is_dir() {
-        return err_msg;
-    }
-
-    // Change to dir
-    match std::env::set_current_dir(path) {
-        Ok(_) => Default::default(),
-        Err(err) => format!("cd: could not change directory to {path}: {err}\n").into(),
-    }
+    format!("cd: {path}: No such file or directory\n").into()
 }
 
 fn pwd(_args: Args) -> Output {
