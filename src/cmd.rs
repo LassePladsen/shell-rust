@@ -3,6 +3,8 @@ use std::{error, fmt, io};
 use crate::env;
 use crate::file;
 
+mod builtin;
+
 #[derive(Debug)]
 pub enum CmdError {
     Io(io::Error),
@@ -84,57 +86,4 @@ pub fn spawn_ext_cmd(cmd: &str, args: Args, paths: Vec<String>) -> Result<Output
 
 fn notfound(cmd: &str) -> Output {
     format!("{cmd}: not found\n").into()
-}
-
-pub mod builtin {
-    use super::{Args, Cmd, Output};
-    use crate::env;
-
-    pub fn get_cmd(cmd: &str) -> Option<Cmd> {
-        match cmd {
-            "type" => Some(type_),
-            "echo" => Some(echo),
-            "exit" => Some(exit),
-            "pwd" => Some(pwd),
-            _ => None,
-        }
-    }
-
-    fn pwd(_args: Args) -> Output {
-        match std::env::current_dir() {
-            Ok(pathbuf) => format!("{}\n", pathbuf.to_string_lossy()).into(),
-            Err(_) => "Unable to get cwd from std::env::current_dir\n"
-                .to_string()
-                .into(),
-        }
-    }
-
-    fn type_(args: Args) -> Output {
-        let Some(cmd) = args.first() else {
-            return Vec::default();
-        };
-
-        if get_cmd(cmd).is_some() {
-            return format!("{cmd} is a shell builtin\n").into();
-        }
-
-        if let Ok(paths) = env::get_paths()
-            && let Some(path) = super::get_cmd_path(cmd, paths)
-        {
-            return format!("{cmd} is {path}\n").into();
-        }
-
-        super::notfound(cmd)
-    }
-
-    fn exit(args: Args) -> Output {
-        std::process::exit(
-            args.first()
-                .map_or(0, |i| i.parse().expect("Expected integer exit code")),
-        );
-    }
-
-    fn echo(args: Args) -> Output {
-        format!("{}\n", args.join(" ")).into()
-    }
 }
