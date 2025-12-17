@@ -31,9 +31,10 @@ fn read_line<'a, R: io::BufRead>(reader: &mut R, buf: &'a mut String) -> io::Res
 
 fn eval(input: &str) -> String {
     let mut words = input.split_whitespace();
-    let cmd = words
-        .next()
-        .expect("Could not find command in the input: '{input}'");
+    let Some(cmd) = words.next() else {
+        // If no cmd; don't do anything this iter. LP 2025-12-17
+        return String::default();
+    };
     let args: Vec<&str> = words.collect();
     match cmd::run(cmd, args) {
         Ok(output) => str::from_utf8(&output)
