@@ -27,10 +27,5 @@ pub fn eval(input: &str) {
     let mut words = input.split_whitespace();
     let cmd = words.next().expect("Could not find command in the input: '{input}'");
     let args: Vec<&str> = words.collect();
-
-    match cmd {
-        "exit" => cmd::exit(),
-        "echo" => cmd::echo(args),
-        _ => cmd::notfound(cmd), // invalid input
-    }
+    cmd::run(cmd, args);
 }
