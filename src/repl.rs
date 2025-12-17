@@ -7,14 +7,15 @@ pub fn start_repl<R: io::BufRead>(reader: &mut R) {
     print!("$ ");
     io::stdout().flush().unwrap();
     let mut buf = String::new();
-    let mut cmd: &str;
+    let mut output;
 
     // REPL
-    while read_line(reader, &mut buf).is_ok() {
-        // Read
-        cmd = buf.trim();
 
-        eval(cmd);
+    // read
+    while let Ok(input) = read_line(reader, &mut buf) {
+        // Print
+        output = eval(input);
+        println!("{output}");
 
         // Restart
         buf.clear();
@@ -28,9 +29,11 @@ fn read_line<'a, R: io::BufRead>(reader: &mut R, buf: &'a mut String) -> io::Res
     Ok(buf.trim())
 }
 
-fn eval(input: &str) {
+fn eval(input: &str) -> String {
     let mut words = input.split_whitespace();
-    let cmd = words.next().expect("Could not find command in the input: '{input}'");
+    let cmd = words
+        .next()
+        .expect("Could not find command in the input: '{input}'");
     let args: Vec<&str> = words.collect();
-    cmd::run(cmd, args);
+    cmd::run(cmd, args) // output
 }
