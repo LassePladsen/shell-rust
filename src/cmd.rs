@@ -1,3 +1,4 @@
+use std::io::empty;
 use std::{error, fmt, io, process};
 
 use crate::env;
@@ -49,14 +50,11 @@ pub fn run(cmd: &str, args: Args) -> Result<Output, CommandError> {
             ext_cmd.arg(arg);
         }
         let output = ext_cmd.output()?;
-        if !output.status.success() {
-            return Err(CommandError::ExecutionFailed(
-                str::from_utf8(&output.stdout)
-                    .expect("Could not write bytes to string")
-                    .to_string(),
-            ));
-        }
-        return Ok(output.stdout);
+        return Ok(if !output.stdout.is_empty() {
+            output.stdout
+        } else {
+            output.stderr
+        });
     }
     Ok(notfound(cmd))
 }
@@ -87,13 +85,13 @@ fn type_(args: Args) -> Output {
     let cmd = args.first().expect("Expected a command as argument");
 
     if get_cmd_builtin(cmd).is_some() {
-        return format!("{cmd} is a shell builtin").into();
+        return format!("{cmd} is a shell builtin\n").into();
     }
 
     if let Ok(paths) = env::get_paths()
         && let Some(path) = get_cmd_path(cmd, paths)
     {
-        return format!("{cmd} is {path}").into();
+        return format!("{cmd} is {path}\n").into();
     }
 
     notfound(cmd)
@@ -107,9 +105,9 @@ fn exit(args: Args) -> Output {
 }
 
 fn echo(args: Args) -> Output {
-    args.join(" ").into()
+    format!("{}\n", args.join(" ")).into()
 }
 
 fn notfound(cmd: &str) -> Output {
-    format!("{cmd}: not found").into()
+    format!("{cmd}: not found\n").into()
 }

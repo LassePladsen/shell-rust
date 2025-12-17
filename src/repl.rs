@@ -15,7 +15,7 @@ pub fn start_repl<R: io::BufRead>(reader: &mut R) {
     while let Ok(input) = read_line(reader, &mut buf) {
         // Print
         output = eval(input);
-        println!("{output}");
+        print!("{output}");
 
         // Restart
         buf.clear();
