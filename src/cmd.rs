@@ -65,7 +65,7 @@ pub fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
 }
 
 pub fn spawn_ext_cmd(cmd: &str, args: Args, paths: Vec<String>) -> Result<Output> {
-    if let Some(_) = get_cmd_path(cmd, paths) {
+    if get_cmd_path(cmd, paths).is_some() {
         let mut ext_cmd = std::process::Command::new(cmd);
         for arg in args {
             ext_cmd.arg(arg);
@@ -77,9 +77,9 @@ pub fn spawn_ext_cmd(cmd: &str, args: Args, paths: Vec<String>) -> Result<Output
             output.stderr
         });
     }
-    Err(CmdError::CmdNotFound(
-        format!("Command {cmd} not found in path.").into(),
-    ))
+    Err(CmdError::CmdNotFound(format!(
+        "Command {cmd} not found in path."
+    )))
 }
 
 fn notfound(cmd: &str) -> Output {
@@ -100,8 +100,13 @@ pub mod builtin {
         }
     }
 
-    fn pwd(args: Args) -> Output {
-        todo!()
+    fn pwd(_args: Args) -> Output {
+        match std::env::current_dir() {
+            Ok(pathbuf) => format!("{}\n", pathbuf.to_string_lossy()).into(),
+            Err(_) => "Unable to get cwd from std::env::current_dir\n"
+                .to_string()
+                .into(),
+        }
     }
 
     fn type_(args: Args) -> Output {
