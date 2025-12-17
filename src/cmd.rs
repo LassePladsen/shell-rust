@@ -1,4 +1,3 @@
-use std::io::empty;
 use std::{error, fmt, io, process};
 
 use crate::env;
@@ -39,13 +38,16 @@ type Output = Vec<u8>;
 type Cmd = fn(Args) -> Output;
 
 pub fn run(cmd: &str, args: Args) -> Result<Output, CommandError> {
+    // Run my builtins
     if let Some(fn_) = get_cmd_builtin(cmd) {
         return Ok(fn_(args));
     }
+
+    // Spawn external command
     if let Ok(paths) = env::get_paths()
-        && let Some(path) = get_cmd_path(cmd, paths)
+        && let Some(_) = get_cmd_path(cmd, paths)
     {
-        let mut ext_cmd = process::Command::new(&path);
+        let mut ext_cmd = process::Command::new(cmd);
         for arg in args {
             ext_cmd.arg(arg);
         }
