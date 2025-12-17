@@ -34,8 +34,8 @@ impl From<io::Error> for CmdError {
     }
 }
 
-type Args<'a> = Vec<&'a str>;
 type Output = Vec<u8>;
+type Args<'a> = Vec<&'a str>;
 type Cmd = fn(Args) -> Output;
 type Result<T> = std::result::Result<T, CmdError>;
 
