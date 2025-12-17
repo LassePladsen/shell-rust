@@ -1,14 +1,64 @@
+use std::{error, fmt, io, process};
+
 use crate::env;
 use crate::file;
 
-type Args<'a> = Vec<&'a str>;
-type Cmd = fn(Args) -> String;
+#[derive(Debug)]
+#[allow(dead_code)]
+pub enum CommandError {
+    Io(io::Error),
+    ExecutionFailed(String),
+}
 
-pub fn run(cmd: &str, args: Args) -> String {
-    match get_cmd_builtin(cmd) {
-        Some(fn_) => fn_(args),
-        None => notfound(cmd),
+impl fmt::Display for CommandError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CommandError::Io(err) => write!(f, "{}", err),
+            CommandError::ExecutionFailed(err) => write!(f, "{}", err),
+        }
     }
+}
+
+impl error::Error for CommandError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            CommandError::Io(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+impl From<io::Error> for CommandError {
+    fn from(err: io::Error) -> Self {
+        CommandError::Io(err)
+    }
+}
+
+type Args<'a> = Vec<&'a str>;
+type Output = Vec<u8>;
+type Cmd = fn(Args) -> Output;
+
+pub fn run(cmd: &str, args: Args) -> Result<Output, CommandError> {
+    if let Some(fn_) = get_cmd_builtin(cmd) {
+        return Ok(fn_(args));
+    }
+    if let Ok(paths) = env::get_paths()
+        && let Some(path) = get_cmd_path(cmd, paths)
+    {
+        let mut ext_cmd = process::Command::new(&path);
+        for arg in args {
+            ext_cmd.arg(arg);
+        }
+        let output = ext_cmd.output()?;
+        if !output.status.success() {
+            return Err(CommandError::ExecutionFailed(
+                str::from_utf8(&output.stdout)
+                    .expect("Could not write bytes to string")
+                    .to_string(),
+            ));
+        }
+        return Ok(output.stdout);
+    }
+    Ok(notfound(cmd))
 }
 
 fn get_cmd_builtin(cmd: &str) -> Option<Cmd> {
@@ -33,33 +83,33 @@ fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
     None
 }
 
-fn type_(args: Args) -> String {
+fn type_(args: Args) -> Output {
     let cmd = args.first().expect("Expected a command as argument");
 
     if get_cmd_builtin(cmd).is_some() {
-        return format!("{cmd} is a shell builtin");
+        return format!("{cmd} is a shell builtin").into();
     }
 
     if let Ok(paths) = env::get_paths()
         && let Some(path) = get_cmd_path(cmd, paths)
     {
-        return format!("{cmd} is {path}");
+        return format!("{cmd} is {path}").into();
     }
 
     notfound(cmd)
 }
 
-fn exit(args: Args) -> String {
-    std::process::exit(
+fn exit(args: Args) -> Output {
+    process::exit(
         args.first()
             .map_or(0, |i| i.parse().expect("Expected integer exit code")),
     );
 }
 
-fn echo(args: Args) -> String {
-    args.join(" ").to_string()
+fn echo(args: Args) -> Output {
+    args.join(" ").into()
 }
 
-fn notfound(cmd: &str) -> String {
-    format!("{cmd}: not found")
+fn notfound(cmd: &str) -> Output {
+    format!("{cmd}: not found").into()
 }

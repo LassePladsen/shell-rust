@@ -35,5 +35,10 @@ fn eval(input: &str) -> String {
         .next()
         .expect("Could not find command in the input: '{input}'");
     let args: Vec<&str> = words.collect();
-    cmd::run(cmd, args) // output
+    match cmd::run(cmd, args) {
+        Ok(output) => str::from_utf8(&output)
+            .expect("Could not write bytes to string")
+            .to_string(),
+        Err(e) => e.to_string(),
+    }
 }
