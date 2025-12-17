@@ -50,11 +50,9 @@ pub fn run(cmd: &str, args: Args) -> Result<Output, CommandError> {
         }
         let output = ext_cmd.output()?;
         if !output.status.success() {
-            return Err(CommandError::ExecutionFailed(
-                str::from_utf8(&output.stdout)
-                    .expect("Could not write bytes to string")
-                    .to_string(),
-            ));
+            return Err(CommandError::ExecutionFailed(format!(
+                "Execution returned nonsuccess exit code: {path}"
+            )));
         }
         return Ok(output.stdout);
     }
