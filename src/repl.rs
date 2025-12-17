@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use crate::cmd;
 
-pub fn start_repl() {
+pub fn start_repl<R: io::BufRead>(reader: &mut R) {
     // Init
     print!("$ ");
     io::stdout().flush().unwrap();
@@ -10,7 +10,7 @@ pub fn start_repl() {
     let mut cmd: &str;
 
     // REPL
-    while io::stdin().read_line(&mut buf).is_ok() {
+    while read_line(reader, &mut buf).is_ok() {
         // Read
         cmd = buf.trim();
 
@@ -23,7 +23,12 @@ pub fn start_repl() {
     }
 }
 
-pub fn eval(input: &str) {
+fn read_line<'a, R: io::BufRead>(reader: &mut R, buf: &'a mut String) -> io::Result<&'a str> {
+    reader.read_line(buf)?;
+    Ok(buf.trim())
+}
+
+fn eval(input: &str) {
     let mut words = input.split_whitespace();
     let cmd = words.next().expect("Could not find command in the input: '{input}'");
     let args: Vec<&str> = words.collect();
