@@ -2,6 +2,7 @@ use std::{error, fmt, io};
 
 use crate::env;
 use crate::file;
+use crate::input::Args;
 
 mod builtin;
 
@@ -35,7 +36,6 @@ impl From<io::Error> for CmdError {
 }
 
 type Output = Vec<u8>;
-type Args<'a> = Vec<&'a str>;
 type Cmd = fn(Args) -> Output;
 type Result<T> = std::result::Result<T, CmdError>;
 
