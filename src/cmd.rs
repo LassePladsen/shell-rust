@@ -36,7 +36,7 @@ impl From<io::Error> for CmdError {
 }
 
 type Output = Vec<u8>;
-type Cmd = fn(Args) -> Output;
+type CmdFn = fn(Args) -> Output;
 type Result<T> = std::result::Result<T, CmdError>;
 
 pub fn run(cmd: &str, args: Args) -> Result<Output> {

@@ -1,8 +1,8 @@
-use super::{Args, Cmd, Output};
+use super::{Args, CmdFn, Output};
 use crate::env;
 use crate::file;
 
-pub fn get_cmd(cmd: &str) -> Option<Cmd> {
+pub fn get_cmd(cmd: &str) -> Option<CmdFn> {
     match cmd {
         "type" => Some(type_),
         "echo" => Some(echo),
@@ -53,6 +53,10 @@ fn type_(args: Args) -> Output {
     super::notfound(cmd)
 }
 
+fn echo(args: Args) -> Output {
+    format!("{}\n", args.join(" ")).into()
+}
+
 fn exit(args: Args) -> Output {
     std::process::exit(
         args.first()
@@ -60,6 +64,3 @@ fn exit(args: Args) -> Output {
     );
 }
 
-fn echo(args: Args) -> Output {
-    format!("{}\n", args.join(" ")).into()
-}
