@@ -1,7 +1,8 @@
-use std::{error, fmt, io, process};
+use std::{error, fmt, io};
 
 use crate::env;
 use crate::file;
+use builtin::*;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -47,7 +48,7 @@ pub fn run(cmd: &str, args: Args) -> Result<Output, CommandError> {
     if let Ok(paths) = env::get_paths()
         && let Some(_) = get_cmd_path(cmd, paths)
     {
-        let mut ext_cmd = process::Command::new(cmd);
+        let mut ext_cmd = std::process::Command::new(cmd);
         for arg in args {
             ext_cmd.arg(arg);
         }
@@ -61,16 +62,7 @@ pub fn run(cmd: &str, args: Args) -> Result<Output, CommandError> {
     Ok(notfound(cmd))
 }
 
-fn get_cmd_builtin(cmd: &str) -> Option<Cmd> {
-    match cmd {
-        "type" => Some(type_),
-        "echo" => Some(echo),
-        "exit" => Some(exit),
-        _ => None,
-    }
-}
-
-fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
+pub fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
     for path in paths {
         let fullpath = format!("{path}/{cmd}");
         let Ok(executable) = file::is_executable_file(&fullpath) else {
@@ -83,33 +75,47 @@ fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
     None
 }
 
-fn type_(args: Args) -> Output {
-    let cmd = args.first().expect("Expected a command as argument");
-
-    if get_cmd_builtin(cmd).is_some() {
-        return format!("{cmd} is a shell builtin\n").into();
-    }
-
-    if let Ok(paths) = env::get_paths()
-        && let Some(path) = get_cmd_path(cmd, paths)
-    {
-        return format!("{cmd} is {path}\n").into();
-    }
-
-    notfound(cmd)
-}
-
-fn exit(args: Args) -> Output {
-    process::exit(
-        args.first()
-            .map_or(0, |i| i.parse().expect("Expected integer exit code")),
-    );
-}
-
-fn echo(args: Args) -> Output {
-    format!("{}\n", args.join(" ")).into()
-}
-
 fn notfound(cmd: &str) -> Output {
     format!("{cmd}: not found\n").into()
+}
+
+pub mod builtin {
+    use super::{Args, Cmd, Output};
+    use crate::env;
+
+    pub fn get_cmd_builtin(cmd: &str) -> Option<Cmd> {
+        match cmd {
+            "type" => Some(type_),
+            "echo" => Some(echo),
+            "exit" => Some(exit),
+            _ => None,
+        }
+    }
+
+    fn type_(args: Args) -> Output {
+        let cmd = args.first().expect("Expected a command as argument");
+
+        if get_cmd_builtin(cmd).is_some() {
+            return format!("{cmd} is a shell builtin\n").into();
+        }
+
+        if let Ok(paths) = env::get_paths()
+            && let Some(path) = super::get_cmd_path(cmd, paths)
+        {
+            return format!("{cmd} is {path}\n").into();
+        }
+
+        super::notfound(cmd)
+    }
+
+    fn exit(args: Args) -> Output {
+        std::process::exit(
+            args.first()
+                .map_or(0, |i| i.parse().expect("Expected integer exit code")),
+        );
+    }
+
+    fn echo(args: Args) -> Output {
+        format!("{}\n", args.join(" ")).into()
+    }
 }
