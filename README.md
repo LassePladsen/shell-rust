@@ -3,3 +3,4 @@ Shell created in Rust as a fun exercise, following the [Codecrafters steps](http
 
 # How to run
 Simply run `your_program.sh` script which compiles and runs the binary.
+Needs `cargo` installed on your machine.
