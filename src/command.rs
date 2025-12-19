@@ -7,37 +7,37 @@ use crate::input::Args;
 mod builtin;
 
 #[derive(Debug)]
-pub enum CmdError {
+pub enum CommandError {
     Io(io::Error),
-    CmdNotFound(String),
+    CommandNotFound(String),
 }
 
-impl fmt::Display for CmdError {
+impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CmdError::Io(err) => write!(f, "{}", err),
-            CmdError::CmdNotFound(err) => write!(f, "{}", err),
+            CommandError::Io(err) => write!(f, "{}", err),
+            CommandError::CommandNotFound(err) => write!(f, "{}", err),
         }
     }
 }
 
-impl error::Error for CmdError {
+impl error::Error for CommandError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            CmdError::Io(err) => Some(err),
+            CommandError::Io(err) => Some(err),
             _ => None,
         }
     }
 }
-impl From<io::Error> for CmdError {
+impl From<io::Error> for CommandError {
     fn from(err: io::Error) -> Self {
-        CmdError::Io(err)
+        CommandError::Io(err)
     }
 }
 
 type Output = Vec<u8>;
-type CmdFn = fn(Args) -> Output;
-type Result<T> = std::result::Result<T, CmdError>;
+type CommandFn = fn(Args) -> Output;
+type Result<T> = std::result::Result<T, CommandError>;
 
 pub fn run(cmd: &str, args: Args) -> Result<Output> {
     // Run my builtins
@@ -79,7 +79,7 @@ pub fn spawn_ext_cmd(cmd: &str, args: Args, paths: Vec<String>) -> Result<Output
             output.stderr
         });
     }
-    Err(CmdError::CmdNotFound(format!(
+    Err(CommandError::CommandNotFound(format!(
         "Command {cmd} not found in path."
     )))
 }

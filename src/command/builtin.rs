@@ -1,8 +1,8 @@
-use super::{Args, CmdFn, Output};
+use super::{Args, CommandFn, Output};
 use crate::env;
 use crate::file;
 
-pub fn get_cmd(cmd: &str) -> Option<CmdFn> {
+pub fn get_cmd(cmd: &str) -> Option<CommandFn> {
     match cmd {
         "type" => Some(type_),
         "echo" => Some(echo),

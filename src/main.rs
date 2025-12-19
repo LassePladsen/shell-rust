@@ -1,6 +1,6 @@
 use std::io;
 
-mod cmd;
+mod command;
 mod repl;
 mod env;
 mod file;

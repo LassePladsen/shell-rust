@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::cmd;
+use crate::command;
 use crate::input;
 
 pub fn start_repl<R: io::BufRead>(reader: &mut R) {
@@ -33,7 +33,7 @@ fn read_line<'a, R: io::BufRead>(reader: &mut R, buf: &'a mut String) -> io::Res
 }
 
 fn eval(cmd: &str, args: input::Args) -> String {
-    match cmd::run(cmd, args) {
+    match command::run(cmd, args) {
         Ok(output) => str::from_utf8(&output)
             .expect("Could not write bytes to string")
             .to_string(),
