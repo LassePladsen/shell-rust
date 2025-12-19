@@ -1,12 +1,11 @@
 use std::env;
 
-pub type Arg = String;
-pub type Args = Vec<Arg>;
+pub type Input = Vec<String>;
 
 /// Does a double pass: first it finds and collects the tokens, then it resolves the tokens to
-/// strings doing escaping, variable interpolation.
-pub fn parse_args(args: &str) -> Args {
-    let tokens = parse_to_tokens(args);
+/// strings doing escaping, variable interpolation. (for abstraction and testability)
+pub fn parse_input(input: &str) -> Input {
+    let tokens = parse_to_tokens(input);
     resolve_tokens(tokens)
 }
 
@@ -19,13 +18,13 @@ enum Token {
     Whitespace,
 }
 
-fn parse_to_tokens(args: &str) -> Vec<Token> {
-    if args.is_empty() {
+fn parse_to_tokens(input: &str) -> Vec<Token> {
+    if input.is_empty() {
         return Default::default();
     }
 
     let mut tokens = Vec::new();
-    let mut chars = args.chars().peekable();
+    let mut chars = input.chars().peekable();
 
     while let Some(&ch) = chars.peek() {
         match ch {
@@ -72,7 +71,7 @@ fn parse_double_quote(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token
                 if let Some(next) = chars.next() {
                     match next {
                         // Escapable
-                        '"' | '\\' | '$' => buf.push(next),
+                        '"' | '\\' | '$' | ' ' => buf.push(next),
 
                         _ => {
                             buf.push('\\');
@@ -149,22 +148,22 @@ fn parse_var_name(chars: &mut std::iter::Peekable<std::str::Chars>) -> String {
     name
 }
 
-fn resolve_tokens(tokens: Vec<Token>) -> Args {
+fn resolve_tokens(tokens: Vec<Token>) -> Input {
     if tokens.is_empty() {
         return Default::default();
     }
 
-    let mut args = Args::default();
-    let mut arg_buf = Arg::new();
+    let mut result = Input::default();
+    let mut buf = String::new();
 
     for token in tokens {
         match token {
-            Token::Literal(s) | Token::SingleQuoted(s) => arg_buf.push_str(&s),
+            Token::Literal(s) | Token::SingleQuoted(s) => buf.push_str(&s),
 
             Token::Variable(name) => {
                 // If env variable not found it will resolve to nothing
                 if let Ok(value) = env::var(&name) {
-                    arg_buf.push_str(&value);
+                    buf.push_str(&value);
                 }
             }
 
@@ -172,10 +171,10 @@ fn resolve_tokens(tokens: Vec<Token>) -> Args {
                 // resolve inner tokens
                 for inner_token in inner_tokens {
                     match inner_token {
-                        Token::Literal(s) => arg_buf.push_str(&s),
+                        Token::Literal(s) => buf.push_str(&s),
                         Token::Variable(name) => {
                             if let Ok(value) = env::var(&name) {
-                                arg_buf.push_str(&value);
+                                buf.push_str(&value);
                             }
                         }
                         _ => {} // shouldn't happen
@@ -185,17 +184,17 @@ fn resolve_tokens(tokens: Vec<Token>) -> Args {
 
             // Separate tokens by a single space for all whitespace
             Token::Whitespace => {
-                if !arg_buf.is_empty() {
-                    args.push(arg_buf.clone());
-                    arg_buf.clear();
+                if !buf.is_empty() {
+                    result.push(buf.clone());
+                    buf.clear();
                 }
             }
         }
     }
 
-    if !arg_buf.is_empty() {
-        args.push(arg_buf);
+    if !buf.is_empty() {
+        result.push(buf);
     }
 
-    args
+    result
 }

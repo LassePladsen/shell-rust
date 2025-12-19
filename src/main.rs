@@ -4,7 +4,7 @@ mod command;
 mod repl;
 mod env;
 mod file;
-mod args;
+mod input;
 
 fn main() {
     repl::start_repl(&mut io::BufReader::new(io::stdin()));

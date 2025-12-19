@@ -1,21 +1,21 @@
 use std::io::{self, Write};
 
-use crate::args::{self, Args};
 use crate::command;
+use crate::input::{self, Input};
 
 pub fn start_repl<R: io::BufRead>(reader: &mut R) {
     // Init
     print!("$ ");
     io::stdout().flush().unwrap();
     let mut buf = String::new();
-    let mut output;
 
     // Read
-    while let Ok(input) = read_line(reader, &mut buf) {
-        let (cmd, args) = parse_input(input);
+    while let Ok(raw_input) = read_line(reader, &mut buf) {
+        let input = input::parse_input(raw_input);
+        let (cmd, args) = (&input[0], input[1..].to_vec());
 
         // Eval
-        output = eval(cmd, args);
+        let output = eval(cmd, args.to_vec());
 
         // Print
         print!("{output}");
@@ -32,18 +32,7 @@ fn read_line<'a, R: io::BufRead>(reader: &mut R, buf: &'a mut String) -> io::Res
     Ok(buf.trim())
 }
 
-/// Returns (cmd, vec of args)
-pub fn parse_input(input: &str) -> (&str, Args) {
-    if input.is_empty() {
-        return (input, Default::default());
-    }
-    match input.split_once(" ") {
-        Some((cmd, arg_str)) => (cmd, args::parse_args(arg_str)),
-        None => (input, Default::default()), // no args
-    }
-}
-
-fn eval(cmd: &str, args: Args) -> String {
+fn eval(cmd: &str, args: Input) -> String {
     match command::run(cmd, args) {
         Ok(output) => str::from_utf8(&output)
             .expect("Could not write bytes to string")

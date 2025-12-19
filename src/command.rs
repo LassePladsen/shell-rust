@@ -2,7 +2,7 @@ use std::{error, fmt, io};
 
 use crate::env;
 use crate::file;
-use crate::args::Args;
+use crate::input::Input;
 
 mod builtin;
 
@@ -36,10 +36,10 @@ impl From<io::Error> for CommandError {
 }
 
 type Output = Vec<u8>;
-type CommandFn = fn(Args) -> Output;
+type CommandFn = fn(Input) -> Output;
 type Result<T> = std::result::Result<T, CommandError>;
 
-pub fn run(cmd: &str, args: Args) -> Result<Output> {
+pub fn run(cmd: &str, args: Input) -> Result<Output> {
     // Run my builtins
     if let Some(fn_) = builtin::get_cmd(cmd) {
         return Ok(fn_(args));
@@ -66,7 +66,7 @@ pub fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
     None
 }
 
-pub fn spawn_ext_cmd(cmd: &str, args: Args, paths: Vec<String>) -> Result<Output> {
+pub fn spawn_ext_cmd(cmd: &str, args: Input, paths: Vec<String>) -> Result<Output> {
     if get_cmd_path(cmd, paths).is_some() {
         let mut ext_cmd = std::process::Command::new(cmd);
         for arg in args {
