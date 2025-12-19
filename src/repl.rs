@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
+use crate::args::{self, Args};
 use crate::command;
-use crate::input;
 
 pub fn start_repl<R: io::BufRead>(reader: &mut R) {
     // Init
@@ -12,7 +12,7 @@ pub fn start_repl<R: io::BufRead>(reader: &mut R) {
 
     // Read
     while let Ok(input) = read_line(reader, &mut buf) {
-        let (cmd, args) = input::parse_input(input);
+        let (cmd, args) = parse_input(input);
 
         // Eval
         output = eval(cmd, args);
@@ -32,7 +32,18 @@ fn read_line<'a, R: io::BufRead>(reader: &mut R, buf: &'a mut String) -> io::Res
     Ok(buf.trim())
 }
 
-fn eval(cmd: &str, args: input::Args) -> String {
+/// Returns (cmd, vec of args)
+pub fn parse_input(input: &str) -> (&str, Args) {
+    if input.is_empty() {
+        return (input, Default::default());
+    }
+    match input.split_once(" ") {
+        Some((cmd, arg_str)) => (cmd, args::parse_args(arg_str)),
+        None => (input, Default::default()), // no args
+    }
+}
+
+fn eval(cmd: &str, args: Args) -> String {
     match command::run(cmd, args) {
         Ok(output) => str::from_utf8(&output)
             .expect("Could not write bytes to string")
