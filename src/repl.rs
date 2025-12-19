@@ -10,12 +10,14 @@ pub fn start_repl<R: io::BufRead>(reader: &mut R) {
     let mut buf = String::new();
     let mut output;
 
-    // REPL
-
-    // read
+    // Read
     while let Ok(input) = read_line(reader, &mut buf) {
+        let (cmd, args) = input::parse_input(input);
+
+        // Eval
+        output = eval(cmd, args);
+
         // Print
-        output = eval(input);
         print!("{output}");
 
         // Restart
@@ -30,8 +32,7 @@ fn read_line<'a, R: io::BufRead>(reader: &mut R, buf: &'a mut String) -> io::Res
     Ok(buf.trim())
 }
 
-fn eval(input: &str) -> String {
-    let (cmd, args) = input::parse_input(input);
+fn eval(cmd: &str, args: input::Args) -> String {
     match cmd::run(cmd, args) {
         Ok(output) => str::from_utf8(&output)
             .expect("Could not write bytes to string")
