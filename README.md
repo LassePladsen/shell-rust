@@ -1,6 +1,5 @@
 # Shell rust
-Shell created in Rust as a fun exercise, following the [Codecrafters steps](https://app.codecrafters.io/courses/shell/overview).
+Shell created in Rust, following the [Codecrafters course steps](https://app.codecrafters.io/courses/shell/overview).
 
 # How to run
-Simply run `your_program.sh` script which compiles and runs the binary.
-Needs `cargo` installed on your machine.
+`cargo run` duh
