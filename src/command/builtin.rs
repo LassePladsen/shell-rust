@@ -1,7 +1,7 @@
 use crate::env;
 use crate::file;
 use crate::input::Input;
-use crate::command::{CommandFn, Output};
+use super::{CommandFn, Output};
 
 pub fn get_cmd(cmd: &str) -> Option<CommandFn> {
     match cmd {
