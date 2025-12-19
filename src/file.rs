@@ -4,7 +4,7 @@ use std::{env, error, fmt, fs, io, os::unix::fs::PermissionsExt};
 pub enum Error {
     Io(io::Error),
     Env(env::VarError),
-    IsNotDir(String),
+    IsNotADirectory(String),
 }
 
 impl fmt::Display for Error {
@@ -12,7 +12,7 @@ impl fmt::Display for Error {
         match self {
             Error::Io(err) => write!(f, "{}", err),
             Error::Env(err) => write!(f, "{}", err),
-            Error::IsNotDir(err) => write!(f, "{}", err),
+            Error::IsNotADirectory(err) => write!(f, "{}", err),
         }
     }
 }
@@ -59,6 +59,6 @@ pub fn resolve_path(path: &str) -> Result<String> {
     if metadata.is_dir() {
         Ok(abs_path.to_string_lossy().into())
     } else {
-        Err(Error::IsNotDir(format!("{path}: No such file or directory")))
+        Err(Error::IsNotADirectory(format!("{path}: No such file or directory")))
     }
 }
