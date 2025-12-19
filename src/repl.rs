@@ -30,7 +30,7 @@ pub fn start_repl<R: io::BufRead>(reader: &mut R) {
 fn eval(cmd: &str, args: Input) -> String {
     match command::run(cmd, args) {
         Ok(output) => str::from_utf8(&output)
-            .expect("Could not write bytes to string")
+            .expect("Could not convert byte slice to string")
             .to_string(),
         Err(e) => e.to_string(),
     }

@@ -45,6 +45,7 @@ pub fn run(cmd: &str, args: Input) -> Result<Output> {
         return Ok(fn_(args));
     }
 
+    // Run external command
     if let Ok(paths) = env::get_paths()
         && let Ok(output) = spawn_ext_cmd(cmd, args, paths)
     {
