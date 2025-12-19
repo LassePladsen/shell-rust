@@ -106,15 +106,23 @@ fn parse_double_quote(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token
 
 fn parse_literal(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token {
     let mut content = String::new();
-
+    let mut escaped = false;
     while let Some(&ch) = chars.peek() {
-        // Literal/normal string stops at whitespace or quote
-        if ch.is_whitespace() || ch == '\'' || ch == '"' {
+        // Escape
+        if !escaped && ch == '\\' {
+            escaped = true;
+            chars.next();
+            continue;
+        }
+
+        // Literal/normal string stops at unescaped whitespace or quote
+        if !escaped && (ch.is_whitespace() || ch == '\'' || ch == '"') {
             break;
         }
 
         content.push(ch);
         chars.next();
+        escaped = false;
     }
 
     Token::Literal(content)
