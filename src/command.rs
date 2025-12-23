@@ -6,6 +6,10 @@ use crate::input::Input;
 
 mod builtin;
 
+pub type Output = Vec<u8>;
+type CommandFn = fn(Input) -> Output;
+type Result<T> = std::result::Result<T, CommandError>;
+
 #[derive(Debug)]
 pub enum CommandError {
     Io(io::Error),
@@ -34,10 +38,6 @@ impl From<io::Error> for CommandError {
         CommandError::Io(err)
     }
 }
-
-type Output = Vec<u8>;
-type CommandFn = fn(Input) -> Output;
-type Result<T> = std::result::Result<T, CommandError>;
 
 pub fn run(cmd: &str, args: Input) -> Result<Output> {
     // Run my builtins

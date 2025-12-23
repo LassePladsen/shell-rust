@@ -1,12 +1,12 @@
-use std::io::{self, Write};
+use std::io;
 
 use crate::command;
 use crate::input::{self, Input};
 
-pub fn start_repl<R: io::BufRead>(reader: &mut R) {
+pub fn start_repl<R: io::BufRead, W: io::Write>(reader: &mut R, writer: &mut W) {
     // Init
     print!("$ ");
-    io::stdout().flush().unwrap();
+    writer.flush().unwrap();
     let mut buf = String::new();
 
     // Read
@@ -18,20 +18,18 @@ pub fn start_repl<R: io::BufRead>(reader: &mut R) {
         let output = eval(cmd, args.to_vec());
 
         // Print
-        print!("{output}");
+        _ = writer.write(&output);
 
         // Restart
         buf.clear();
         print!("$ ");
-        io::stdout().flush().unwrap();
+        writer.flush().unwrap();
     }
 }
 
-fn eval(cmd: &str, args: Input) -> String {
+fn eval(cmd: &str, args: Input) -> command::Output {
     match command::run(cmd, args) {
-        Ok(output) => str::from_utf8(&output)
-            .expect("Could not convert byte slice to string")
-            .to_string(),
-        Err(e) => e.to_string(),
+        Ok(output) => output,
+        Err(e) => e.to_string().into(),
     }
 }
