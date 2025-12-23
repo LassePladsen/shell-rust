@@ -59,6 +59,8 @@ pub fn resolve_path(path: &str) -> Result<String> {
     if metadata.is_dir() {
         Ok(abs_path.to_string_lossy().into())
     } else {
-        Err(Error::IsNotADirectory(format!("{path}: No such file or directory")))
+        Err(Error::IsNotADirectory(format!(
+            "{path}: No such file or directory"
+        )))
     }
 }

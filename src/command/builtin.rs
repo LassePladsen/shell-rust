@@ -1,7 +1,7 @@
+use super::{CommandFn, Output};
 use crate::env;
 use crate::file;
 use crate::input::Input;
-use super::{CommandFn, Output};
 
 pub fn get_cmd(cmd: &str) -> Option<CommandFn> {
     match cmd {
@@ -64,4 +64,3 @@ fn exit(args: Input) -> Output {
             .map_or(0, |i| i.parse().expect("Expected integer exit code")),
     );
 }
-
