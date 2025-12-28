@@ -67,12 +67,14 @@ pub fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
     None
 }
 
+pub fn cmd_in_paths(cmd: &str, paths: Vec<String>) -> bool {
+    get_cmd_path(cmd, paths).is_some()
+}
+
 pub fn spawn_ext_cmd(cmd: &str, args: Input, paths: Vec<String>) -> Result<Output> {
-    if get_cmd_path(cmd, paths).is_some() {
+    if cmd_in_paths(cmd, paths) {
         let mut ext_cmd = std::process::Command::new(cmd);
-        for arg in args {
-            ext_cmd.arg(arg);
-        }
+        ext_cmd.args(args);
         let output = ext_cmd.output()?;
         return Ok(if !output.stdout.is_empty() {
             output.stdout
@@ -80,6 +82,7 @@ pub fn spawn_ext_cmd(cmd: &str, args: Input, paths: Vec<String>) -> Result<Outpu
             output.stderr
         });
     }
+
     Err(CommandError::CommandNotFound(format!(
         "Command {cmd} not found in path."
     )))
