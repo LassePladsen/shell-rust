@@ -1,9 +1,11 @@
 use std::env;
+use std::iter::Peekable;
+use std::str::Chars;
 
 pub type Input = Vec<String>;
 
 /// Does a double pass: first it finds and collects the tokens, then it resolves the tokens to
-/// strings doing escaping, variable interpolation. (for abstraction and testability)
+/// strings doing e.g escaping, variable interpolation. (for separation of responsibility and testability)
 pub fn parse_input(input: &str) -> Input {
     let tokens = parse_to_tokens(input);
     resolve_tokens(tokens)
@@ -41,7 +43,7 @@ fn parse_to_tokens(input: &str) -> Vec<Token> {
     tokens
 }
 
-fn parse_single_quote(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token {
+fn parse_single_quote(chars: &mut Peekable<Chars>) -> Token {
     chars.next(); // consume opening '
     let mut content = String::new();
 
@@ -56,7 +58,7 @@ fn parse_single_quote(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token
     Token::SingleQuoted(content)
 }
 
-fn parse_double_quote(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token {
+fn parse_double_quote(chars: &mut Peekable<Chars>) -> Token {
     chars.next(); // consume opening "
     let mut inner_tokens = Vec::new();
     let mut buf = String::new();
@@ -104,7 +106,7 @@ fn parse_double_quote(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token
     Token::DoubleQuoted(inner_tokens)
 }
 
-fn parse_literal(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token {
+fn parse_literal(chars: &mut Peekable<Chars>) -> Token {
     let mut content = String::new();
     let mut escaped = false;
     while let Some(&ch) = chars.peek() {
@@ -128,7 +130,7 @@ fn parse_literal(chars: &mut std::iter::Peekable<std::str::Chars>) -> Token {
     Token::Literal(content)
 }
 
-fn parse_var_name(chars: &mut std::iter::Peekable<std::str::Chars>) -> String {
+fn parse_var_name(chars: &mut Peekable<Chars>) -> String {
     let mut name = String::new();
 
     // ${name}
