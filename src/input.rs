@@ -1,12 +1,33 @@
-use std::env;
-use std::iter::Peekable;
-use std::str::Chars;
+use std::{
+    default::Default,
+    env,
+    io::{Write, stderr, stdin, stdout},
+    iter::Peekable,
+    str::Chars,
+};
 
 pub type Input = Vec<String>;
 
+pub struct CommandParams {
+    pub input: Input,
+    pub out_writer: Box<dyn Write>,
+    pub err_writer: Box<dyn Write>,
+}
+
+impl Default for CommandParams {
+    fn default() -> Self {
+        Self {
+            input: Default::default(),
+            out_writer: Box::new(stdout()),
+            err_writer: Box::new(stderr()),
+        }
+    }
+}
+
 /// Does a double pass: first it finds and collects the tokens, then it resolves the tokens to
 /// strings doing e.g escaping, variable interpolation. (for separation of responsibility and testability)
-pub fn parse_input(input: &str) -> Input {
+/// Returns a tuple of (resolved args, stdout redirection, stderr redirection)
+pub fn parse_input(input: &str) -> CommandParams {
     let tokens = parse_to_tokens(input);
     resolve_tokens(tokens)
 }
@@ -29,18 +50,20 @@ fn parse_to_tokens(input: &str) -> Vec<Token> {
     let mut chars = input.chars().peekable();
 
     while let Some(&ch) = chars.peek() {
-        match ch {
-            '\'' => tokens.push(parse_single_quote(&mut chars)),
-            '"' => tokens.push(parse_double_quote(&mut chars)),
-            ch if ch.is_whitespace() => {
-                chars.next();
-                tokens.push(Token::Whitespace);
-            }
-            _ => tokens.push(parse_literal(&mut chars)),
-        }
+        tokens.push(match ch {
+            '\'' => parse_single_quote(&mut chars),
+            '"' => parse_double_quote(&mut chars),
+            ch if ch.is_whitespace() => parse_whitespace(&mut chars),
+            _ => parse_literal(&mut chars),
+        })
     }
 
     tokens
+}
+
+fn parse_whitespace(chars: &mut Peekable<Chars>) -> Token {
+    chars.next();
+    Token::Whitespace
 }
 
 fn parse_single_quote(chars: &mut Peekable<Chars>) -> Token {
@@ -158,53 +181,64 @@ fn parse_var_name(chars: &mut Peekable<Chars>) -> String {
     name
 }
 
-fn resolve_tokens(tokens: Vec<Token>) -> Input {
+fn resolve_tokens(tokens: Vec<Token>) -> CommandParams {
+    let mut params = CommandParams::default();
     if tokens.is_empty() {
-        return Default::default();
+        return params;
     }
 
-    let mut result = Input::default();
+    let mut resolved_input = Input::default();
     let mut buf = String::new();
 
     for token in tokens {
         match token {
-            Token::Literal(s) | Token::SingleQuoted(s) => buf.push_str(&s),
-
-            Token::Variable(name) => {
-                // If env variable not found it will resolve to nothing
-                if let Ok(value) = env::var(&name) {
-                    buf.push_str(&value);
-                }
-            }
-
-            Token::DoubleQuoted(inner_tokens) => {
-                // resolve inner tokens
-                for inner_token in inner_tokens {
-                    match inner_token {
-                        Token::Literal(s) => buf.push_str(&s),
-                        Token::Variable(name) => {
-                            if let Ok(value) = env::var(&name) {
-                                buf.push_str(&value);
-                            }
-                        }
-                        _ => {} // shouldn't happen
-                    }
-                }
-            }
-
-            // Separate tokens by a single space for all whitespace
-            Token::Whitespace => {
-                if !buf.is_empty() {
-                    result.push(buf.clone());
-                    buf.clear();
-                }
-            }
+            Token::SingleQuoted(s) => buf.push_str(&s),
+            Token::Variable(name) => resolve_variable(&mut buf, &name),
+            Token::DoubleQuoted(inner_tokens) => resolve_double_quoted(&mut buf, &inner_tokens),
+            Token::Whitespace => resolve_whitespace(&mut buf, &mut resolved_input),
+            Token::Literal(s) => resolve_literal(&mut buf, &s),
         }
     }
 
     if !buf.is_empty() {
-        result.push(buf);
+        resolved_input.push(buf);
     }
 
-    result
+    params.input = resolved_input;
+    params
+}
+
+fn resolve_literal(buf: &mut String, literal: &str) {
+    // We need to check if the literal contains a redirection
+    buf.push_str(literal)
+}
+
+fn resolve_whitespace(buf: &mut String, resolved_input: &mut Vec<String>) {
+    // Separate tokens by a single space for all whitespace
+    if !buf.is_empty() {
+        resolved_input.push(buf.clone());
+        buf.clear();
+    }
+}
+
+fn resolve_variable(buf: &mut String, name: &str) {
+    // If env variable not found it will resolve to nothing
+    if let Ok(value) = env::var(name) {
+        buf.push_str(&value);
+    }
+}
+
+fn resolve_double_quoted(buf: &mut String, inner_tokens: &[Token]) {
+    // resolve inner tokens
+    for inner_token in inner_tokens {
+        match inner_token {
+            Token::Literal(s) => buf.push_str(s),
+            Token::Variable(name) => {
+                if let Ok(value) = env::var(name) {
+                    buf.push_str(&value);
+                }
+            }
+            _ => {} // shouldn't happen
+        }
+    }
 }

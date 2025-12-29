@@ -1,29 +1,29 @@
-use std::io;
+use std::io::{BufRead, Write};
 
 use crate::command;
-use crate::input::{self, Input};
+use crate::input::{self, CommandParams, Input};
 
-pub fn start_repl<R: io::BufRead, W: io::Write>(reader: &mut R, writer: &mut W) {
+pub fn start_repl<R: BufRead, W: Write>(reader: &mut R, stdwriter: &mut W) {
     // Init
     print!("$ ");
-    writer.flush().unwrap();
+    stdwriter.flush().unwrap();
     let mut buf = String::new();
 
     // Read
     while reader.read_line(&mut buf).is_ok() {
-        let input = input::parse_input(buf.trim());
-        let (cmd, args) = (&input[0], input[1..].to_vec());
+        let params = input::parse_input(buf.trim());
+        let (cmd, args) = (&params.input[0], &params.input[1..]);
 
         // Eval
         let output = eval(cmd, args.to_vec());
 
         // Print
-        _ = writer.write(&output);
+        _ = stdwriter.write(&output);
 
         // Restart
         buf.clear();
         print!("$ ");
-        writer.flush().unwrap();
+        stdwriter.flush().unwrap();
     }
 }
 
