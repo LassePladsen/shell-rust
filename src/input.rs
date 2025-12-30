@@ -27,6 +27,15 @@ impl Default for CommandParams {
 /// Does a double pass: first it finds and collects the tokens, then it resolves the tokens to
 /// strings doing e.g escaping, variable interpolation. (for separation of responsibility and testability)
 pub fn parse_input(input: &str) -> CommandParams {
+    enum Context {
+        None,
+        Escaped,
+        SingleQuote,
+        DoubleQuote,
+    }
+    // ... todo
+
+
     let tokens = parse_to_tokens(input);
     resolve_tokens(tokens)
 }
