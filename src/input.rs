@@ -25,7 +25,7 @@ impl Default for CommandParams {
 }
 
 enum Context {
-    None,
+    Normal,
     Escaped,
     SingleQuote,
     DoubleQuote,
@@ -40,24 +40,18 @@ pub fn parse_input(input: &str) -> CommandParams {
 
     let mut resolved_input = Vec::new();
     let mut buf = String::new();
-    let mut context = Context::None;
+    let mut context = Context::Normal;
     let mut chars = input.chars().peekable();
 
     while let Some(ch) = chars.next() {
         match context {
-            Context::None => match ch {
-                '\'' => context = Context::SingleQuote,
-                '"' => context = Context::DoubleQuote,
-                '\\' => context = Context::Escaped,
-                '~' => expand_tilde(&mut buf),
-                '$' => expand_variable(&mut chars, &mut buf),
-                _ if ch.is_whitespace() => separate_token(&mut buf, &mut resolved_input),
-                _ => buf.push(ch),
-            },
+            Context::Normal => {
+                handle_normal_context(ch, &mut chars, &mut buf, &mut resolved_input, &mut context)
+            }
             Context::Escaped => {
                 // Any character is now literal
                 buf.push(ch);
-                context = Context::None;
+                context = Context::Normal;
             }
             Context::SingleQuote => handle_single_quote_context(ch, &mut buf, &mut context),
             Context::DoubleQuote => {
@@ -75,10 +69,28 @@ pub fn parse_input(input: &str) -> CommandParams {
     params
 }
 
+fn handle_normal_context(
+    ch: char,
+    chars: &mut Peekable<Chars>,
+    buf: &mut String,
+    resolved_input: &mut Vec<String>,
+    context: &mut Context,
+) {
+    match ch {
+        '\'' => *context = Context::SingleQuote,
+        '"' => *context = Context::DoubleQuote,
+        '\\' => *context = Context::Escaped,
+        '~' => expand_tilde(buf),
+        '$' => expand_variable(chars, buf),
+        _ if ch.is_whitespace() => separate_token(buf, resolved_input),
+        _ => buf.push(ch),
+    }
+}
+
 fn handle_single_quote_context(ch: char, buf: &mut String, context: &mut Context) {
     if ch == '\'' {
         // End single quote
-        *context = Context::None;
+        *context = Context::Normal;
     } else {
         // Inside single quotes, everything is literal (no expansion)
         buf.push(ch);
@@ -94,7 +106,7 @@ fn handle_double_quote_context(
     match ch {
         '"' => {
             // End double quote
-            *context = Context::None;
+            *context = Context::Normal;
         }
         '\\' => handle_escape_in_double_quote(chars, buf),
         '$' => expand_variable(chars, buf),
