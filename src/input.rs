@@ -24,151 +24,124 @@ impl Default for CommandParams {
     }
 }
 
-/// Does a double pass: first it finds and collects the tokens, then it resolves the tokens to
-/// strings doing e.g escaping, variable interpolation. (for separation of responsibility and testability)
+enum Context {
+    None,
+    Escaped,
+    SingleQuote,
+    DoubleQuote,
+}
+
+/// Parses and resolves input in a single pass using a context system
 pub fn parse_input(input: &str) -> CommandParams {
-    enum Context {
-        None,
-        Escaped,
-        SingleQuote,
-        DoubleQuote,
-    }
-    // ... todo
-
-
-    let tokens = parse_to_tokens(input);
-    resolve_tokens(tokens)
-}
-
-#[derive(Debug, Clone)]
-enum Token {
-    Literal(String),
-    Variable(String),         // $VAR
-    SingleQuoted(String),     // 'no expansion'
-    DoubleQuoted(Vec<Token>), // "can have variables $VAR, escaped chars \", and single quotes ' inside"
-    Whitespace,
-}
-
-fn parse_to_tokens(input: &str) -> Vec<Token> {
+    let mut params = CommandParams::default();
     if input.is_empty() {
-        return Default::default();
+        return params;
     }
 
-    let mut tokens = Vec::new();
+    let mut resolved_input = Vec::new();
+    let mut buf = String::new();
+    let mut context = Context::None;
     let mut chars = input.chars().peekable();
 
-    while let Some(&ch) = chars.peek() {
-        tokens.push(match ch {
-            '\'' => parse_single_quote(&mut chars),
-            '"' => parse_double_quote(&mut chars),
-            ch if ch.is_whitespace() => parse_whitespace(&mut chars),
-            _ => parse_literal(&mut chars),
-        })
-    }
-
-    tokens
-}
-
-fn parse_whitespace(chars: &mut Peekable<Chars>) -> Token {
-    chars.next();
-    Token::Whitespace
-}
-
-fn parse_single_quote(chars: &mut Peekable<Chars>) -> Token {
-    chars.next(); // consume opening '
-    let mut content = String::new();
-
-    for ch in chars {
-        // Stop the single quote token
-        if ch == '\'' {
-            break;
-        }
-        content.push(ch);
-    }
-
-    Token::SingleQuoted(content)
-}
-
-fn parse_double_quote(chars: &mut Peekable<Chars>) -> Token {
-    chars.next(); // consume opening "
-    let mut inner_tokens = Vec::new();
-    let mut buf = String::new();
-
     while let Some(ch) = chars.next() {
-        match ch {
-            // Stop the double quote token
-            '"' => break,
-
-            '\\' => {
-                // Escape the next char if its escapable
-                if let Some(next) = chars.next() {
-                    match next {
-                        // Escapable
-                        '"' | '\\' | '$' | ' ' => buf.push(next),
-
-                        _ => {
-                            buf.push('\\');
-                            buf.push(next);
-                        }
-                    }
-                }
+        match context {
+            Context::None => match ch {
+                '\'' => context = Context::SingleQuote,
+                '"' => context = Context::DoubleQuote,
+                '\\' => context = Context::Escaped,
+                '~' => expand_tilde(&mut buf),
+                '$' => expand_variable(&mut chars, &mut buf),
+                _ if ch.is_whitespace() => separate_token(&mut buf, &mut resolved_input),
+                _ => buf.push(ch),
+            },
+            Context::Escaped => handle_escaped_context(ch, &mut buf, &mut context),
+            Context::SingleQuote => handle_single_quote_context(ch, &mut buf, &mut context),
+            Context::DoubleQuote => {
+                handle_double_quote_context(ch, &mut chars, &mut buf, &mut context)
             }
-
-            '$' => {
-                // Save any literal content before the variable
-                if !buf.is_empty() {
-                    inner_tokens.push(Token::Literal(buf.clone()));
-                    buf.clear();
-                }
-
-                // Parse variable name
-                let var_name = parse_var_name(chars);
-                inner_tokens.push(Token::Variable(var_name));
-            }
-
-            _ => buf.push(ch),
         }
     }
 
+    // Push any remaining content
     if !buf.is_empty() {
-        inner_tokens.push(Token::Literal(buf));
+        resolved_input.push(buf);
     }
 
-    Token::DoubleQuoted(inner_tokens)
+    params.input = resolved_input;
+    params
 }
 
-fn parse_literal(chars: &mut Peekable<Chars>) -> Token {
-    let mut content = String::new();
-    let mut escaped = false;
-    while let Some(&ch) = chars.peek() {
-        // Escape
-        if !escaped && ch == '\\' {
-            escaped = true;
-            chars.next();
-            continue;
-        }
+fn handle_escaped_context(ch: char, buf: &mut String, context: &mut Context) {
+    // In unquoted context, backslash escapes any character
+    buf.push(ch);
+    *context = Context::None;
+}
 
-        // Replace ~ with home
-        if !escaped && ch == '~' {
-            match std::env::var("HOME") {
-                Ok(s) => content.push_str(&s),
-                Err(_) => content.push(ch),
-            };
-            chars.next();
-            continue;
-        }
-
-        // Literal/normal string stops at unescaped whitespace or quote
-        if !escaped && (ch.is_whitespace() || ch == '\'' || ch == '"') {
-            break;
-        }
-
-        content.push(ch);
-        chars.next();
-        escaped = false;
+fn handle_single_quote_context(ch: char, buf: &mut String, context: &mut Context) {
+    if ch == '\'' {
+        // End single quote
+        *context = Context::None;
+    } else {
+        // Inside single quotes, everything is literal (no expansion)
+        buf.push(ch);
     }
+}
 
-    Token::Literal(content)
+fn handle_double_quote_context(
+    ch: char,
+    chars: &mut Peekable<Chars>,
+    buf: &mut String,
+    context: &mut Context,
+) {
+    match ch {
+        '"' => {
+            // End double quote
+            *context = Context::None;
+        }
+        '\\' => handle_escape_in_double_quote(chars, buf),
+        '$' => expand_variable(chars, buf),
+        _ => buf.push(ch),
+    }
+}
+
+fn handle_escape_in_double_quote(chars: &mut Peekable<Chars>, buf: &mut String) {
+    if let Some(&next) = chars.peek() {
+        match next {
+            '"' | '\\' | '$' | ' ' => {
+                // Escapable characters
+                chars.next();
+                buf.push(next);
+            }
+            _ => {
+                // Not escapable, keep the backslash
+                buf.push('\\');
+            }
+        }
+    } else {
+        buf.push('\\');
+    }
+}
+
+fn expand_tilde(buf: &mut String) {
+    if let Ok(home) = env::var("HOME") {
+        buf.push_str(&home);
+    } else {
+        buf.push('~');
+    }
+}
+
+fn expand_variable(chars: &mut Peekable<Chars>, buf: &mut String) {
+    let var_name = parse_var_name(chars);
+    if let Ok(value) = env::var(&var_name) {
+        buf.push_str(&value);
+    }
+}
+
+fn separate_token(buf: &mut String, resolved_input: &mut Vec<String>) {
+    if !buf.is_empty() {
+        resolved_input.push(buf.clone());
+        buf.clear();
+    }
 }
 
 fn parse_var_name(chars: &mut Peekable<Chars>) -> String {
@@ -199,104 +172,9 @@ fn parse_var_name(chars: &mut Peekable<Chars>) -> String {
     name
 }
 
-fn resolve_tokens(tokens: Vec<Token>) -> CommandParams {
-    let mut params = CommandParams::default();
-    if tokens.is_empty() {
-        return params;
-    }
-
-    let mut resolved_input = Input::default();
-    let mut buf = String::new();
-
-    for token in tokens {
-        match token {
-            Token::SingleQuoted(s) => buf.push_str(&s),
-            Token::Variable(name) => resolve_variable(&mut buf, &name),
-            Token::DoubleQuoted(inner_tokens) => resolve_double_quoted(&mut buf, &inner_tokens),
-            Token::Whitespace => resolve_whitespace(&mut buf, &mut resolved_input),
-            Token::Literal(s) => resolve_literal(&mut buf, &s),
-        }
-    }
-
-    if !buf.is_empty() {
-        resolved_input.push(buf);
-    }
-
-    params.input = resolved_input;
-    params
-}
-
-fn resolve_literal(buf: &mut String, literal: &str) {
-    // We need to check if the literal contains a redirection
-
-    buf.push_str(literal)
-}
-
-fn resolve_whitespace(buf: &mut String, resolved_input: &mut Vec<String>) {
-    // Separate tokens by a single space for all whitespace
-    if !buf.is_empty() {
-        resolved_input.push(buf.clone());
-        buf.clear();
-    }
-}
-
-fn resolve_variable(buf: &mut String, name: &str) {
-    // If env variable not found it will resolve to nothing
-    if let Ok(value) = env::var(name) {
-        buf.push_str(&value);
-    }
-}
-
-fn resolve_double_quoted(buf: &mut String, inner_tokens: &[Token]) {
-    // resolve inner tokens
-    for inner_token in inner_tokens {
-        match inner_token {
-            Token::Literal(s) => buf.push_str(s),
-            Token::Variable(name) => {
-                if let Ok(value) = env::var(name) {
-                    buf.push_str(&value);
-                }
-            }
-            _ => {} // shouldn't happen
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn resolve_double_quoted() {
-        unsafe {
-            std::env::set_var("myvar", "myvar_val");
-        }
-        let inner_tokens = [
-            Token::Literal("Hello   after 3 spaces ".to_string()),
-            Token::Variable("myvar".to_string()),
-        ];
-        let mut buf = String::new();
-        super::resolve_double_quoted(&mut buf, &inner_tokens);
-        assert_eq!(buf, "Hello   after 3 spaces myvar_val");
-    }
-
-    #[test]
-    fn resolve_variable() {
-        unsafe {
-            std::env::set_var("myvar", "myvar_val");
-        }
-        let mut buf = String::new();
-        super::resolve_variable(&mut buf, "myvar");
-        assert_eq!(buf, "myvar_val");
-    }
-
-    #[test]
-    fn resolve_whitespace() {
-        let mut buf = "Hello   world".to_string();
-        let mut buf2 = vec!["One".to_string(), "Two".to_string()];
-        super::resolve_whitespace(&mut buf, &mut buf2);
-        assert_eq!(buf2, ["One", "Two", "Hello   world"]);
-    }
 
     #[test]
     fn parse_input() {
@@ -314,7 +192,7 @@ mod tests {
         );
         assert_eq!(
             super::parse_input("myvar is: $myvar").input,
-            ["myvar", "is:", "$myvar"]
+            ["myvar", "is:", "myvar_val"]
         );
         assert_eq!(
             super::parse_input("cd ~/work").input,
