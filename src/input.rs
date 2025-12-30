@@ -140,6 +140,16 @@ fn parse_literal(chars: &mut Peekable<Chars>) -> Token {
             continue;
         }
 
+        // Replace ~ with home
+        if !escaped && ch == '~' {
+            match std::env::var("HOME") {
+                Ok(s) => content.push_str(&s),
+                Err(_) => content.push(ch),
+            };
+            chars.next();
+            continue;
+        }
+
         // Literal/normal string stops at unescaped whitespace or quote
         if !escaped && (ch.is_whitespace() || ch == '\'' || ch == '"') {
             break;
@@ -210,6 +220,7 @@ fn resolve_tokens(tokens: Vec<Token>) -> CommandParams {
 
 fn resolve_literal(buf: &mut String, literal: &str) {
     // We need to check if the literal contains a redirection
+
     buf.push_str(literal)
 }
 
