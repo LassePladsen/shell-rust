@@ -21,7 +21,9 @@ fn cd(args: Input) -> Output {
     };
 
     if let Ok(abs_path) = file::resolve_path(path)
-        && let Ok(_) = std::env::set_current_dir(abs_path)
+        && let Ok(_) = std::env::set_current_dir(&abs_path)
+        && let Ok(is_dir) = file::is_dir(&abs_path)
+        && is_dir
     {
         return Default::default();
     }

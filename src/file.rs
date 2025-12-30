@@ -54,13 +54,10 @@ pub fn resolve_path(path: &str) -> Result<String> {
 
     // Resolve to abs path and check if is dir
     let abs_path = std::path::absolute(&resolved_path)?;
-    let metadata = std::fs::metadata(&abs_path)?;
+    Ok(abs_path.to_string_lossy().into())
+}
 
-    if metadata.is_dir() {
-        Ok(abs_path.to_string_lossy().into())
-    } else {
-        Err(Error::IsNotADirectory(format!(
-            "{path}: No such file or directory"
-        )))
-    }
+pub fn is_dir(abs_path: &str) -> Result<bool> {
+    let metadata = std::fs::metadata(abs_path)?;
+    Ok(metadata.is_dir())
 }
