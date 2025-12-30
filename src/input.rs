@@ -271,4 +271,14 @@ mod tests {
         super::resolve_double_quoted(&mut buf, &inner_tokens);
         assert_eq!(buf, "Hello   after 3 spaces myvar_val");
     }
+
+    #[test]
+    fn resolve_variable() {
+        unsafe {
+            std::env::set_var("myvar", "myvar_val");
+        }
+        let mut buf = String::new();
+        super::resolve_variable(&mut buf, "myvar");
+        assert_eq!(buf, "myvar_val");
+    }
 }
