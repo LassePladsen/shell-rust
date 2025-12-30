@@ -54,7 +54,11 @@ pub fn parse_input(input: &str) -> CommandParams {
                 _ if ch.is_whitespace() => separate_token(&mut buf, &mut resolved_input),
                 _ => buf.push(ch),
             },
-            Context::Escaped => handle_escaped_context(ch, &mut buf, &mut context),
+            Context::Escaped => {
+                // Any character is now literal
+                buf.push(ch);
+                context = Context::None;
+            }
             Context::SingleQuote => handle_single_quote_context(ch, &mut buf, &mut context),
             Context::DoubleQuote => {
                 handle_double_quote_context(ch, &mut chars, &mut buf, &mut context)
@@ -69,12 +73,6 @@ pub fn parse_input(input: &str) -> CommandParams {
 
     params.input = resolved_input;
     params
-}
-
-fn handle_escaped_context(ch: char, buf: &mut String, context: &mut Context) {
-    // In unquoted context, backslash escapes any character
-    buf.push(ch);
-    *context = Context::None;
 }
 
 fn handle_single_quote_context(ch: char, buf: &mut String, context: &mut Context) {
