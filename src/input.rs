@@ -77,11 +77,18 @@ fn handle_normal_context(
     context: &mut Context,
 ) {
     match ch {
+        // Start new context
         '\'' => *context = Context::SingleQuote,
         '"' => *context = Context::DoubleQuote,
         '\\' => *context = Context::Escaped,
+
+        // Expansion
         '~' => expand_tilde(buf),
         '$' => expand_variable(chars, buf),
+
+        // Redirection
+        '>' => todo!(),
+
         _ if ch.is_whitespace() => separate_token(buf, resolved_input),
         _ => buf.push(ch),
     }
