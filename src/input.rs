@@ -253,3 +253,22 @@ fn resolve_double_quoted(buf: &mut String, inner_tokens: &[Token]) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Token;
+
+    #[test]
+    fn resolve_double_quoted() {
+        unsafe {
+            std::env::set_var("myvar", "myvar_val");
+        }
+        let inner_tokens = [
+            Token::Literal("Hello   after 3 spaces ".to_string()),
+            Token::Variable("myvar".to_string()),
+        ];
+        let mut buf = String::new();
+        super::resolve_double_quoted(&mut buf, &inner_tokens);
+        assert_eq!(buf, "Hello   after 3 spaces myvar_val");
+    }
+}
