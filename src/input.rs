@@ -26,7 +26,6 @@ impl Default for CommandParams {
 
 /// Does a double pass: first it finds and collects the tokens, then it resolves the tokens to
 /// strings doing e.g escaping, variable interpolation. (for separation of responsibility and testability)
-/// Returns a tuple of (resolved args, stdout redirection, stderr redirection)
 pub fn parse_input(input: &str) -> CommandParams {
     let tokens = parse_to_tokens(input);
     resolve_tokens(tokens)
@@ -354,41 +353,4 @@ mod tests {
         assert_eq!(super::parse_input("\"cd ~/work\"").input, ["cd ~/work"]);
         assert_eq!(super::parse_input("cd \"~/work\"").input, ["cd", "~/work"]);
     }
-
-    /*
-    #[test]
-    fn resolve_tokens() {
-        unsafe {
-            std::env::set_var("myvar", "myvar_val");
-        }
-        let tokens = vec![
-            Token::Literal("grep".to_string()),
-            Token::Whitespace,
-            Token::Literal("Hello   world $myvar".to_string()),
-            Token::Whitespace,
-            Token::SingleQuoted("Single   quoted ~ $myvar".to_string()),
-            Token::Whitespace,
-            Token::DoubleQuoted(vec![
-                Token::Literal("Double   quoted ~ $myvar".to_string()),
-                Token::Variable("myvar".to_string()),
-            ]),
-        ];
-
-        let params = super::resolve_tokens(tokens);
-        assert_eq!(
-            params.input,
-            vec![
-                "grep".to_string(),
-                "Hello   world $myvar".to_string(),
-                "Single   quoted ~ $myvar".to_string(),
-                "Double   Quoted ~ $myvarmyvar_val".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn resolve_literal() {
-        todo!()
-    }
-    */
 }
