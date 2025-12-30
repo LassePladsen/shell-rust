@@ -256,7 +256,7 @@ fn resolve_double_quoted(buf: &mut String, inner_tokens: &[Token]) {
 
 #[cfg(test)]
 mod tests {
-    use super::Token;
+    use super::*;
 
     #[test]
     fn resolve_double_quoted() {
@@ -284,9 +284,111 @@ mod tests {
 
     #[test]
     fn resolve_whitespace() {
-        let mut buf = "Hello world".to_string();
+        let mut buf = "Hello   world".to_string();
         let mut buf2 = vec!["One".to_string(), "Two".to_string()];
         super::resolve_whitespace(&mut buf, &mut buf2);
-        assert_eq!(buf2, ["One", "Two", "Hello world"]);
+        assert_eq!(buf2, ["One", "Two", "Hello   world"]);
     }
+
+    #[test]
+    fn parse_input() {
+        unsafe {
+            std::env::set_var("myvar", "myvar_val");
+        }
+        unsafe {
+            std::env::set_var("HOME", "/home/myhome");
+        }
+
+        // No quotes
+        assert_eq!(
+            super::parse_input("Hello   world").input,
+            ["Hello", "world"]
+        );
+        assert_eq!(
+            super::parse_input("myvar is: $myvar").input,
+            ["myvar", "is:", "$myvar"]
+        );
+        assert_eq!(
+            super::parse_input("cd ~/work").input,
+            ["cd", "/home/myhome/work"]
+        );
+
+        // Single quotes
+        assert_eq!(
+            super::parse_input("'Hello   world'").input,
+            ["Hello   world"]
+        );
+        assert_eq!(
+            super::parse_input("'Hello   world'").input,
+            ["Hello   world"]
+        );
+        assert_eq!(super::parse_input("'Hello''world'").input, ["Helloworld"]);
+        assert_eq!(
+            super::parse_input("'myvar is: $myvar'").input,
+            ["myvar is: $myvar"]
+        );
+        assert_eq!(
+            super::parse_input("myvar is: '$myvar'").input,
+            ["myvar", "is:", "$myvar"]
+        );
+        assert_eq!(super::parse_input("'cd ~/work'").input, ["cd ~/work"]);
+        assert_eq!(super::parse_input("cd '~/work'").input, ["cd", "~/work"]);
+
+        // Double quotes
+        assert_eq!(
+            super::parse_input("\"Hello   world\"").input,
+            ["Hello   world"]
+        );
+        assert_eq!(
+            super::parse_input("\"Hello\"\"world\"").input,
+            ["Helloworld"]
+        );
+        assert_eq!(
+            super::parse_input("\"myvar is: $myvar\"").input,
+            ["myvar is: myvar_val"]
+        );
+        assert_eq!(
+            super::parse_input("myvar is: \"$myvar\"").input,
+            ["myvar", "is:", "myvar_val"]
+        );
+        assert_eq!(super::parse_input("\"cd ~/work\"").input, ["cd ~/work"]);
+        assert_eq!(super::parse_input("cd \"~/work\"").input, ["cd", "~/work"]);
+    }
+
+    /*
+    #[test]
+    fn resolve_tokens() {
+        unsafe {
+            std::env::set_var("myvar", "myvar_val");
+        }
+        let tokens = vec![
+            Token::Literal("grep".to_string()),
+            Token::Whitespace,
+            Token::Literal("Hello   world $myvar".to_string()),
+            Token::Whitespace,
+            Token::SingleQuoted("Single   quoted ~ $myvar".to_string()),
+            Token::Whitespace,
+            Token::DoubleQuoted(vec![
+                Token::Literal("Double   quoted ~ $myvar".to_string()),
+                Token::Variable("myvar".to_string()),
+            ]),
+        ];
+
+        let params = super::resolve_tokens(tokens);
+        assert_eq!(
+            params.input,
+            vec![
+                "grep".to_string(),
+                "Hello   world $myvar".to_string(),
+                "Single   quoted ~ $myvar".to_string(),
+                "Double   Quoted ~ $myvarmyvar_val".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn resolve_literal() {
+        todo!()
+    }
+    */
 }
