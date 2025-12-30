@@ -281,4 +281,12 @@ mod tests {
         super::resolve_variable(&mut buf, "myvar");
         assert_eq!(buf, "myvar_val");
     }
+
+    #[test]
+    fn resolve_whitespace() {
+        let mut buf = "Hello world".to_string();
+        let mut buf2 = vec!["One".to_string(), "Two".to_string()];
+        super::resolve_whitespace(&mut buf, &mut buf2);
+        assert_eq!(buf2, ["One", "Two", "Hello world"]);
+    }
 }
