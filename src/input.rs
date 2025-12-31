@@ -9,31 +9,34 @@ use std::{
     str::Chars,
 };
 
-pub type Args = Vec<String>;
-
+#[derive(Debug, Default, Clone)]
 pub struct Command {
     pub args: Args,
+}
+
+pub struct CommandPipeline {
+    pub commands: Vec<Command>,
     pub stdout: Box<dyn Write>,
     pub stderr: Box<dyn Write>,
 }
 
-impl Default for Command {
-    fn default() -> Self {
-        Self {
-            args: Default::default(),
-            stdout: Box::new(stdout()),
-            stderr: Box::new(stderr()),
-        }
-    }
-}
-
-impl Debug for Command {
+impl Debug for CommandPipeline {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Command").field("args", &self.args).finish()
+        f.debug_struct("CommandPipeline")
+            .field("commands", &self.commands)
+            .finish()
     }
 }
 
-pub type CommandPipeline = Vec<Command>;
+impl Iterator for CommandPipeline {
+    type Item = Command;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.commands.clone().into_iter().next()
+    }
+}
+
+pub type Args = Vec<String>;
 
 #[derive(Debug)]
 enum Context {

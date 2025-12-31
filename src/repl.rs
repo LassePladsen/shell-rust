@@ -18,25 +18,8 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     while reader.read_line(&mut buf).is_ok() {
         match input::parse_input(buf.trim()) {
             Ok(pipeline) => {
-                for mut params in pipeline {
-                    if params.args.is_empty() {
-                        continue;
-                    }
-                    let (cmd, args) = (&params.args[0], &params.args[1..]);
-
-                    // Eval
-                    output = eval(cmd, args.to_vec());
-
-                    // Print
-                    _ = params.stdout.write(&output.stdout);
-                    _ = params.stderr.write(&output.stderr);
-                    params.stdout.flush().unwrap();
-
-                    // Restart
-                    buf.clear();
-                    _ = stdout.write(b"$ ");
-                    stdout.flush().unwrap();
-                }
+                // Execute
+                execute_pipeline(pipeline);
             }
             Err(e) => {
                 let mut s = e.to_string();
@@ -53,6 +36,8 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
         };
     }
 }
+
+fn execute_pipeline()
 
 fn eval(cmd: &str, args: Args) -> command::Output {
     match command::run(cmd, args) {
