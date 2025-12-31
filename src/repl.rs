@@ -1,7 +1,7 @@
 use std::io::{BufRead, Write};
 
 use crate::command;
-use crate::input::{self, Input};
+use crate::input::{self, Args};
 
 pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     reader: &mut R,
@@ -18,7 +18,7 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     while reader.read_line(&mut buf).is_ok() {
         match input::parse_input(buf.trim()) {
             Ok(mut params) => {
-                let (cmd, args) = (&params.input[0], &params.input[1..]);
+                let (cmd, args) = (&params.args[0], &params.args[1..]);
 
                 // Eval
                 output = eval(cmd, args.to_vec());
@@ -49,7 +49,7 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     }
 }
 
-fn eval(cmd: &str, args: Input) -> command::Output {
+fn eval(cmd: &str, args: Args) -> command::Output {
     match command::run(cmd, args) {
         Ok(output) => output,
         Err(e) => command::Output {

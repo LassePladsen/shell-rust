@@ -1,7 +1,6 @@
-use super::{CommandFn, Output};
+use super::{CommandFn, Output, Args};
 use crate::env;
 use crate::file;
-use crate::input::Input;
 
 pub fn get_cmd(cmd: &str) -> Option<CommandFn> {
     match cmd {
@@ -14,7 +13,7 @@ pub fn get_cmd(cmd: &str) -> Option<CommandFn> {
     }
 }
 
-fn cd(args: Input) -> Output {
+fn cd(args: Args) -> Output {
     let path = match args.first() {
         Some(path) => path,
         None => "~", // Defaults to cd'ing home if no args
@@ -34,7 +33,7 @@ fn cd(args: Input) -> Output {
     }
 }
 
-fn pwd(_args: Input) -> Output {
+fn pwd(_args: Args) -> Output {
     let mut output = Output::default();
     match std::env::current_dir() {
         Ok(pathbuf) => output.stdout = format!("{}\n", pathbuf.to_string_lossy()).into(),
@@ -43,7 +42,7 @@ fn pwd(_args: Input) -> Output {
     output
 }
 
-fn type_(args: Input) -> Output {
+fn type_(args: Args) -> Output {
     let Some(cmd) = args.first() else {
         return Default::default();
     };
@@ -67,14 +66,14 @@ fn type_(args: Input) -> Output {
     super::notfound(cmd)
 }
 
-fn echo(args: Input) -> Output {
+fn echo(args: Args) -> Output {
     Output {
         stdout: format!("{}\n", args.join(" ")).into(),
         ..Default::default()
     }
 }
 
-fn exit(args: Input) -> Output {
+fn exit(args: Args) -> Output {
     std::process::exit(
         args.first()
             .map_or(0, |i| i.parse().expect("Expected integer exit code")),

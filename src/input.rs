@@ -7,10 +7,10 @@ use std::{
     str::Chars,
 };
 
-pub type Input = Vec<String>;
+pub type Args = Vec<String>;
 
 pub struct CommandParams {
-    pub input: Input,
+    pub args: Args,
     pub stdout: Box<dyn Write>,
     pub stderr: Box<dyn Write>,
 }
@@ -18,7 +18,7 @@ pub struct CommandParams {
 impl Default for CommandParams {
     fn default() -> Self {
         Self {
-            input: Default::default(),
+            args: Default::default(),
             stdout: Box::new(stdout()),
             stderr: Box::new(stderr()),
         }
@@ -71,7 +71,7 @@ pub fn parse_input(input: &str) -> io::Result<CommandParams> {
         resolved_input.push(buf);
     }
 
-    params.input = resolved_input;
+    params.args = resolved_input;
     Ok(params)
 }
 
@@ -267,83 +267,83 @@ mod tests {
 
         // No quotes
         assert_eq!(
-            super::parse_input("Hello   world").unwrap().input,
+            super::parse_input("Hello   world").unwrap().args,
             ["Hello", "world"]
         );
         assert_eq!(
-            super::parse_input("myvar is: $myvar").unwrap().input,
+            super::parse_input("myvar is: $myvar").unwrap().args,
             ["myvar", "is:", "myvar_val"]
         );
         assert_eq!(
-            super::parse_input("cd ~/work").unwrap().input,
+            super::parse_input("cd ~/work").unwrap().args,
             ["cd", "/home/myhome/work"]
         );
 
         // Single quotes
         assert_eq!(
-            super::parse_input("'Hello   world'").unwrap().input,
+            super::parse_input("'Hello   world'").unwrap().args,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("'Hello   world'").unwrap().input,
+            super::parse_input("'Hello   world'").unwrap().args,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("'Hello''world'").unwrap().input,
+            super::parse_input("'Hello''world'").unwrap().args,
             ["Helloworld"]
         );
         assert_eq!(
-            super::parse_input("'myvar is: $myvar'").unwrap().input,
+            super::parse_input("'myvar is: $myvar'").unwrap().args,
             ["myvar is: $myvar"]
         );
         assert_eq!(
-            super::parse_input("myvar is: '$myvar'").unwrap().input,
+            super::parse_input("myvar is: '$myvar'").unwrap().args,
             ["myvar", "is:", "$myvar"]
         );
         assert_eq!(
-            super::parse_input("'cd ~/work'").unwrap().input,
+            super::parse_input("'cd ~/work'").unwrap().args,
             ["cd ~/work"]
         );
         assert_eq!(
-            super::parse_input("cd '~/work'").unwrap().input,
+            super::parse_input("cd '~/work'").unwrap().args,
             ["cd", "~/work"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei '> {FILENAME}'"))
                 .unwrap()
-                .input,
+                .args,
             ["echo", "hei", &format!("> {FILENAME}")]
         );
 
         // Double quotes
         assert_eq!(
-            super::parse_input("\"Hello   world\"").unwrap().input,
+            super::parse_input("\"Hello   world\"").unwrap().args,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("\"Hello\"\"world\"").unwrap().input,
+            super::parse_input("\"Hello\"\"world\"").unwrap().args,
             ["Helloworld"]
         );
         assert_eq!(
-            super::parse_input("\"myvar is: $myvar\"").unwrap().input,
+            super::parse_input("\"myvar is: $myvar\"").unwrap().args,
             ["myvar is: myvar_val"]
         );
         assert_eq!(
-            super::parse_input("myvar is: \"$myvar\"").unwrap().input,
+            super::parse_input("myvar is: \"$myvar\"").unwrap().args,
             ["myvar", "is:", "myvar_val"]
         );
         assert_eq!(
-            super::parse_input("\"cd ~/work\"").unwrap().input,
+            super::parse_input("\"cd ~/work\"").unwrap().args,
             ["cd ~/work"]
         );
         assert_eq!(
-            super::parse_input("cd \"~/work\"").unwrap().input,
+            super::parse_input("cd \"~/work\"").unwrap().args,
             ["cd", "~/work"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei \"> {FILENAME}\""))
                 .unwrap()
-                .input,
+                .args,
             ["echo", "hei", &format!("> {FILENAME}")]
         );
 
@@ -351,19 +351,19 @@ mod tests {
         assert_eq!(
             super::parse_input(&format!("echo hei > {FILENAME}"))
                 .unwrap()
-                .input,
+                .args,
             ["echo", "hei"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei >{FILENAME}"))
                 .unwrap()
-                .input,
+                .args,
             ["echo", "hei"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei 2>{FILENAME}"))
                 .unwrap()
-                .input,
+                .args,
             ["echo", "hei"]
         );
 
