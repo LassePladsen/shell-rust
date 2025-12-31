@@ -1,21 +1,23 @@
 use std::{
     default::Default,
     env,
+    fmt::Debug,
     fs::File,
     io::{self, Write, stderr, stdout},
     iter::Peekable,
+    mem,
     str::Chars,
 };
 
 pub type Args = Vec<String>;
 
-pub struct CommandParams {
+pub struct Command {
     pub args: Args,
     pub stdout: Box<dyn Write>,
     pub stderr: Box<dyn Write>,
 }
 
-impl Default for CommandParams {
+impl Default for Command {
     fn default() -> Self {
         Self {
             args: Default::default(),
@@ -25,6 +27,15 @@ impl Default for CommandParams {
     }
 }
 
+impl Debug for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Command").field("args", &self.args).finish()
+    }
+}
+
+pub type CommandPipeline = Vec<Command>;
+
+#[derive(Debug)]
 enum Context {
     Normal,
     Escaped,
@@ -33,13 +44,14 @@ enum Context {
 }
 
 /// Parses and resolves input in a single pass using a context system
-pub fn parse_input(input: &str) -> io::Result<CommandParams> {
-    let mut params = CommandParams::default();
+pub fn parse_input(input: &str) -> io::Result<CommandPipeline> {
+    let mut pipeline = CommandPipeline::default();
+    let mut params = Command::default();
     if input.is_empty() {
-        return Ok(params);
+        return Ok(pipeline);
     }
 
-    let mut resolved_input = Vec::new();
+    let mut resolved_args = Vec::new();
     let mut buf = String::new();
     let mut context = Context::Normal;
     let mut chars = input.chars().peekable();
@@ -50,9 +62,10 @@ pub fn parse_input(input: &str) -> io::Result<CommandParams> {
                 ch,
                 &mut chars,
                 &mut buf,
-                &mut resolved_input,
+                &mut resolved_args,
                 &mut context,
                 &mut params,
+                &mut pipeline,
             )?,
             Context::Escaped => {
                 // Any character is now literal
@@ -68,20 +81,24 @@ pub fn parse_input(input: &str) -> io::Result<CommandParams> {
 
     // Push any remaining content
     if !buf.is_empty() {
-        resolved_input.push(buf);
+        resolved_args.push(buf);
     }
 
-    params.args = resolved_input;
-    Ok(params)
+    // Add the last command
+    params.args = resolved_args;
+    pipeline.push(params);
+
+    Ok(pipeline)
 }
 
 fn handle_normal_context(
     ch: char,
     chars: &mut Peekable<Chars>,
     buf: &mut String,
-    resolved_input: &mut Vec<String>,
+    resolved_args: &mut Vec<String>,
     context: &mut Context,
-    params: &mut CommandParams,
+    params: &mut Command,
+    pipeline: &mut CommandPipeline,
 ) -> io::Result<()> {
     match ch {
         // Start new context
@@ -93,19 +110,37 @@ fn handle_normal_context(
         '~' => expand_tilde(buf),
         '$' => expand_variable(chars, buf),
 
-        // Redirection
+        // Redirection & pipeline
         '>' => handle_redirection(chars, buf, params)?,
+        '|' => pipe(chars, buf, params, pipeline, context, resolved_args),
 
-        _ if ch.is_whitespace() => separate_token(buf, resolved_input),
+        _ if ch.is_whitespace() => separate_token(buf, resolved_args),
         _ => buf.push(ch),
     }
     Ok(())
 }
 
+fn pipe(
+    chars: &mut Peekable<Chars>,
+    buf: &mut String,
+    params: &mut Command,
+    pipeline: &mut CommandPipeline,
+    context: &mut Context,
+    resolved_args: &mut Vec<String>,
+) {
+    // This is the end of this command, add it to the pipeline and reset the states for the new piped command
+    params.args = mem::take(resolved_args);
+    pipeline.push(mem::take(params));
+    *buf = Default::default();
+    *context = Context::Normal;
+
+    chars.next();
+}
+
 fn handle_redirection(
     chars: &mut Peekable<Chars>,
     buf: &mut String,
-    params: &mut CommandParams,
+    params: &mut Command,
 ) -> io::Result<()> {
     // Default file descriptor stdout
     let mut fd: u8 = 1;
@@ -217,9 +252,9 @@ fn expand_variable(chars: &mut Peekable<Chars>, buf: &mut String) {
     }
 }
 
-fn separate_token(buf: &mut String, resolved_input: &mut Vec<String>) {
+fn separate_token(buf: &mut String, resolved_args: &mut Vec<String>) {
     if !buf.is_empty() {
-        resolved_input.push(buf.clone());
+        resolved_args.push(buf.clone());
         buf.clear();
     }
 }
@@ -267,49 +302,91 @@ mod tests {
 
         // No quotes
         assert_eq!(
-            super::parse_input("Hello   world").unwrap().args,
+            super::parse_input("Hello   world")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["Hello", "world"]
         );
         assert_eq!(
-            super::parse_input("myvar is: $myvar").unwrap().args,
+            super::parse_input("myvar is: $myvar")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["myvar", "is:", "myvar_val"]
         );
         assert_eq!(
-            super::parse_input("cd ~/work").unwrap().args,
+            super::parse_input("cd ~/work")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["cd", "/home/myhome/work"]
         );
 
         // Single quotes
         assert_eq!(
-            super::parse_input("'Hello   world'").unwrap().args,
+            super::parse_input("'Hello   world'")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("'Hello   world'").unwrap().args,
+            super::parse_input("'Hello   world'")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("'Hello''world'").unwrap().args,
+            super::parse_input("'Hello''world'")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["Helloworld"]
         );
         assert_eq!(
-            super::parse_input("'myvar is: $myvar'").unwrap().args,
+            super::parse_input("'myvar is: $myvar'")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["myvar is: $myvar"]
         );
         assert_eq!(
-            super::parse_input("myvar is: '$myvar'").unwrap().args,
+            super::parse_input("myvar is: '$myvar'")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["myvar", "is:", "$myvar"]
         );
         assert_eq!(
-            super::parse_input("'cd ~/work'").unwrap().args,
+            super::parse_input("'cd ~/work'")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["cd ~/work"]
         );
         assert_eq!(
-            super::parse_input("cd '~/work'").unwrap().args,
+            super::parse_input("cd '~/work'")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["cd", "~/work"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei '> {FILENAME}'"))
+                .unwrap()
+                .first()
                 .unwrap()
                 .args,
             ["echo", "hei", &format!("> {FILENAME}")]
@@ -317,31 +394,57 @@ mod tests {
 
         // Double quotes
         assert_eq!(
-            super::parse_input("\"Hello   world\"").unwrap().args,
+            super::parse_input("\"Hello   world\"")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("\"Hello\"\"world\"").unwrap().args,
+            super::parse_input("\"Hello\"\"world\"")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["Helloworld"]
         );
         assert_eq!(
-            super::parse_input("\"myvar is: $myvar\"").unwrap().args,
+            super::parse_input("\"myvar is: $myvar\"")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["myvar is: myvar_val"]
         );
         assert_eq!(
-            super::parse_input("myvar is: \"$myvar\"").unwrap().args,
+            super::parse_input("myvar is: \"$myvar\"")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["myvar", "is:", "myvar_val"]
         );
         assert_eq!(
-            super::parse_input("\"cd ~/work\"").unwrap().args,
+            super::parse_input("\"cd ~/work\"")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["cd ~/work"]
         );
         assert_eq!(
-            super::parse_input("cd \"~/work\"").unwrap().args,
+            super::parse_input("cd \"~/work\"")
+                .unwrap()
+                .first()
+                .unwrap()
+                .args,
             ["cd", "~/work"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei \"> {FILENAME}\""))
+                .unwrap()
+                .first()
                 .unwrap()
                 .args,
             ["echo", "hei", &format!("> {FILENAME}")]
@@ -351,17 +454,23 @@ mod tests {
         assert_eq!(
             super::parse_input(&format!("echo hei > {FILENAME}"))
                 .unwrap()
+                .first()
+                .unwrap()
                 .args,
             ["echo", "hei"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei >{FILENAME}"))
                 .unwrap()
+                .first()
+                .unwrap()
                 .args,
             ["echo", "hei"]
         );
         assert_eq!(
             super::parse_input(&format!("echo hei 2>{FILENAME}"))
+                .unwrap()
+                .first()
                 .unwrap()
                 .args,
             ["echo", "hei"]

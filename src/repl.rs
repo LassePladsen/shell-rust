@@ -17,21 +17,26 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     // Read
     while reader.read_line(&mut buf).is_ok() {
         match input::parse_input(buf.trim()) {
-            Ok(mut params) => {
-                let (cmd, args) = (&params.args[0], &params.args[1..]);
+            Ok(pipeline) => {
+                for mut params in pipeline {
+                    if params.args.is_empty() {
+                        continue;
+                    }
+                    let (cmd, args) = (&params.args[0], &params.args[1..]);
 
-                // Eval
-                output = eval(cmd, args.to_vec());
+                    // Eval
+                    output = eval(cmd, args.to_vec());
 
-                // Print
-                _ = params.stdout.write(&output.stdout);
-                _ = params.stderr.write(&output.stderr);
-                params.stdout.flush().unwrap();
+                    // Print
+                    _ = params.stdout.write(&output.stdout);
+                    _ = params.stderr.write(&output.stderr);
+                    params.stdout.flush().unwrap();
 
-                // Restart
-                buf.clear();
-                _ = stdout.write(b"$ ");
-                stdout.flush().unwrap();
+                    // Restart
+                    buf.clear();
+                    _ = stdout.write(b"$ ");
+                    stdout.flush().unwrap();
+                }
             }
             Err(e) => {
                 let mut s = e.to_string();
