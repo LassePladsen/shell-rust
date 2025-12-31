@@ -25,17 +25,22 @@ fn cd(args: Input) -> Output {
         && let Ok(is_dir) = file::is_dir(&abs_path)
         && is_dir
     {
-        return Default::default();
+        return Output::default();
     }
 
-    format!("cd: {path}: No such file or directory\n").into()
+    Output {
+        stdout: Default::default(),
+        stderr: format!("cd: {path}: No such file or directory\n").into(),
+    }
 }
 
 fn pwd(_args: Input) -> Output {
+    let mut output = Output::default();
     match std::env::current_dir() {
-        Ok(pathbuf) => format!("{}\n", pathbuf.to_string_lossy()).into(),
-        Err(_) => "Unable to get cwd from std::env::current_dir\n".into(),
-    }
+        Ok(pathbuf) => output.stdout = format!("{}\n", pathbuf.to_string_lossy()).into(),
+        Err(_) => output.stderr = "Unable to get cwd from std::env::current_dir\n".into(),
+    };
+    output
 }
 
 fn type_(args: Input) -> Output {
@@ -44,20 +49,23 @@ fn type_(args: Input) -> Output {
     };
 
     if get_cmd(cmd).is_some() {
-        return format!("{cmd} is a shell builtin\n").into();
+        return Output {
+            stdout: format!("{cmd} is a shell builtin\n").into(),
+            stderr: Default::default(),
+        };
     }
 
     if let Ok(paths) = env::get_paths()
         && let Some(path) = super::get_cmd_path(cmd, paths)
     {
-        return format!("{cmd} is {path}\n").into();
+        return Output::default_with_stdout(format!("{cmd} is {path}\n").into());
     }
 
     super::notfound(cmd)
 }
 
 fn echo(args: Input) -> Output {
-    format!("{}\n", args.join(" ")).into()
+    Output::default_with_stdout(format!("{}\n", args.join(" ")).into())
 }
 
 fn exit(args: Input) -> Output {

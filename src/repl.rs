@@ -3,10 +3,14 @@ use std::io::{BufRead, Write};
 use crate::command;
 use crate::input::{self, Input};
 
-pub fn start_repl<R: BufRead, W: Write>(reader: &mut R, stdwriter: &mut W) {
+pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
+    reader: &mut R,
+    stdout: &mut W1,
+    stderr: &mut W2,
+) {
     // Init
-    _ = stdwriter.write(b"$ ");
-    stdwriter.flush().unwrap();
+    _ = stdout.write(b"$ ");
+    stdout.flush().unwrap();
     let mut buf = String::new();
     let mut output: command::Output;
 
@@ -20,27 +24,26 @@ pub fn start_repl<R: BufRead, W: Write>(reader: &mut R, stdwriter: &mut W) {
                 output = eval(cmd, args.to_vec());
 
                 // Print
-                _ = params.out_writer.write(&output);
-                params.out_writer.flush().unwrap();
+                _ = params.stdout.write(&output.stdout);
+                _ = params.stderr.write(&output.stderr);
+                params.stdout.flush().unwrap();
 
                 // Restart
                 buf.clear();
-                _ = stdwriter.write(b"$ ");
-                stdwriter.flush().unwrap();
+                _ = stdout.write(b"$ ");
+                stdout.flush().unwrap();
             }
             Err(e) => {
                 let mut s = e.to_string();
                 s.push('\n');
-                output = s.into();
 
-                // TODO: separate stdout and stderr writers?
                 // Print
-                _ = stdwriter.write(&output);
+                _ = stderr.write(s.as_bytes());
 
                 // Restart
                 buf.clear();
-                _ = stdwriter.write(b"$ ");
-                stdwriter.flush().unwrap();
+                _ = stdout.write(b"$ ");
+                stdout.flush().unwrap();
             }
         };
     }
@@ -49,6 +52,6 @@ pub fn start_repl<R: BufRead, W: Write>(reader: &mut R, stdwriter: &mut W) {
 fn eval(cmd: &str, args: Input) -> command::Output {
     match command::run(cmd, args) {
         Ok(output) => output,
-        Err(e) => e.to_string().into(),
+        Err(e) => command::Output::default_with_stderr(e.to_string().as_bytes().to_vec()),
     }
 }

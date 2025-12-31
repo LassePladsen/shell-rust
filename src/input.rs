@@ -11,16 +11,16 @@ pub type Input = Vec<String>;
 
 pub struct CommandParams {
     pub input: Input,
-    pub out_writer: Box<dyn Write>,
-    pub err_writer: Box<dyn Write>,
+    pub stdout: Box<dyn Write>,
+    pub stderr: Box<dyn Write>,
 }
 
 impl Default for CommandParams {
     fn default() -> Self {
         Self {
             input: Default::default(),
-            out_writer: Box::new(stdout()),
-            err_writer: Box::new(stderr()),
+            stdout: Box::new(stdout()),
+            stderr: Box::new(stderr()),
         }
     }
 }
@@ -120,8 +120,8 @@ fn handle_redirection(
     let target_writer = Box::new(File::create(target_file)?);
 
     match fd {
-        1 => params.out_writer = target_writer,
-        2 => params.err_writer = target_writer,
+        1 => params.stdout = target_writer,
+        2 => params.stderr = target_writer,
         _ => (),
     }
     buf.clear();

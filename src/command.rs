@@ -1,4 +1,4 @@
-use std::{error, fmt, io};
+use std::{error, fmt, io, process};
 
 use crate::env;
 use crate::file;
@@ -6,7 +6,44 @@ use crate::input::Input;
 
 mod builtin;
 
-pub type Output = Vec<u8>;
+#[derive(Debug)]
+pub struct Output {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+}
+
+impl Output {
+    pub fn default_with_stdout(stdout: Vec<u8>) -> Self {
+        let mut output = Self::default();
+        output.stdout = stdout;
+        output
+    }
+
+    pub fn default_with_stderr(stderr: Vec<u8>) -> Self {
+        let mut output = Self::default();
+        output.stderr = stderr;
+        output
+    }
+}
+
+impl Default for Output {
+    fn default() -> Self {
+        Self {
+            stdout: Default::default(),
+            stderr: Default::default(),
+        }
+    }
+}
+
+impl From<process::Output> for Output {
+    fn from(value: process::Output) -> Self {
+        Self {
+            stdout: value.stdout,
+            stderr: value.stderr,
+        }
+    }
+}
+
 type CommandFn = fn(Input) -> Output;
 type Result<T> = std::result::Result<T, CommandError>;
 
@@ -75,12 +112,7 @@ pub fn spawn_ext_cmd(cmd: &str, args: Input, paths: Vec<String>) -> Result<Outpu
     if cmd_in_paths(cmd, paths) {
         let mut ext_cmd = std::process::Command::new(cmd);
         ext_cmd.args(args);
-        let output = ext_cmd.output()?;
-        return Ok(if !output.stdout.is_empty() {
-            output.stdout
-        } else {
-            output.stderr
-        });
+        return Ok(ext_cmd.output()?.into());
     }
 
     Err(CommandError::CommandNotFound(format!(
@@ -89,5 +121,5 @@ pub fn spawn_ext_cmd(cmd: &str, args: Input, paths: Vec<String>) -> Result<Outpu
 }
 
 fn notfound(cmd: &str) -> Output {
-    format!("{cmd}: not found\n").into()
+    Output::default_with_stdout(format!("{cmd}: not found\n").into())
 }
