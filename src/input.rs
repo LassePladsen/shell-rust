@@ -1,7 +1,8 @@
 use std::{
     default::Default,
     env,
-    io::{Write, stderr, stdin, stdout},
+    fs::File,
+    io::{self, Write, stderr, stdin, stdout},
     iter::Peekable,
     str::Chars,
 };
@@ -32,10 +33,10 @@ enum Context {
 }
 
 /// Parses and resolves input in a single pass using a context system
-pub fn parse_input(input: &str) -> CommandParams {
+pub fn parse_input(input: &str) -> io::Result<CommandParams> {
     let mut params = CommandParams::default();
     if input.is_empty() {
-        return params;
+        return Ok(params);
     }
 
     let mut resolved_input = Vec::new();
@@ -45,9 +46,14 @@ pub fn parse_input(input: &str) -> CommandParams {
 
     while let Some(ch) = chars.next() {
         match context {
-            Context::Normal => {
-                handle_normal_context(ch, &mut chars, &mut buf, &mut resolved_input, &mut context)
-            }
+            Context::Normal => handle_normal_context(
+                ch,
+                &mut chars,
+                &mut buf,
+                &mut resolved_input,
+                &mut context,
+                &mut params,
+            )?,
             Context::Escaped => {
                 // Any character is now literal
                 buf.push(ch);
@@ -66,7 +72,7 @@ pub fn parse_input(input: &str) -> CommandParams {
     }
 
     params.input = resolved_input;
-    params
+    Ok(params)
 }
 
 fn handle_normal_context(
@@ -75,7 +81,8 @@ fn handle_normal_context(
     buf: &mut String,
     resolved_input: &mut Vec<String>,
     context: &mut Context,
-) {
+    params: &mut CommandParams,
+) -> io::Result<()> {
     match ch {
         // Start new context
         '\'' => *context = Context::SingleQuote,
@@ -87,11 +94,58 @@ fn handle_normal_context(
         '$' => expand_variable(chars, buf),
 
         // Redirection
-        '>' => todo!(),
+        '>' => handle_redirection(chars, buf, params)?,
 
         _ if ch.is_whitespace() => separate_token(buf, resolved_input),
         _ => buf.push(ch),
     }
+    Ok(())
+}
+
+fn handle_redirection(
+    chars: &mut Peekable<Chars>,
+    buf: &mut String,
+    params: &mut CommandParams,
+) -> io::Result<()> {
+    // Default file descriptor stdout
+    let mut fd: u8 = 1;
+
+    if let Some(ch) = buf.chars().next()
+        && let Some(digit) = ch.to_digit(10)
+    {
+        fd = digit as u8;
+    }
+
+    let target_file = parse_redirection_file(chars);
+    let target_writer = Box::new(File::create(target_file)?);
+
+    match fd {
+        1 => params.out_writer = target_writer,
+        2 => params.err_writer = target_writer,
+        _ => (),
+    }
+    buf.clear();
+
+    Ok(())
+}
+
+fn parse_redirection_file(chars: &mut Peekable<Chars>) -> String {
+    let mut target_file = String::new();
+    while let Some(ch) = chars.peek() {
+        // Allow optional whitespace between '>' and filename, but stop at the whitespace after the filename
+        if *ch == ' ' {
+            if !target_file.is_empty() {
+                break;
+            } else {
+                chars.next();
+                continue;
+            }
+        }
+
+        target_file.push(*ch);
+        chars.next();
+    }
+    target_file
 }
 
 fn handle_single_quote_context(ch: char, buf: &mut String, context: &mut Context) {
@@ -191,8 +245,6 @@ fn parse_var_name(chars: &mut Peekable<Chars>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn parse_input() {
         unsafe {
@@ -204,57 +256,72 @@ mod tests {
 
         // No quotes
         assert_eq!(
-            super::parse_input("Hello   world").input,
+            super::parse_input("Hello   world").unwrap().input,
             ["Hello", "world"]
         );
         assert_eq!(
-            super::parse_input("myvar is: $myvar").input,
+            super::parse_input("myvar is: $myvar").unwrap().input,
             ["myvar", "is:", "myvar_val"]
         );
         assert_eq!(
-            super::parse_input("cd ~/work").input,
+            super::parse_input("cd ~/work").unwrap().input,
             ["cd", "/home/myhome/work"]
         );
 
         // Single quotes
         assert_eq!(
-            super::parse_input("'Hello   world'").input,
+            super::parse_input("'Hello   world'").unwrap().input,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("'Hello   world'").input,
-            ["Hello   world"]
-        );
-        assert_eq!(super::parse_input("'Hello''world'").input, ["Helloworld"]);
-        assert_eq!(
-            super::parse_input("'myvar is: $myvar'").input,
-            ["myvar is: $myvar"]
-        );
-        assert_eq!(
-            super::parse_input("myvar is: '$myvar'").input,
-            ["myvar", "is:", "$myvar"]
-        );
-        assert_eq!(super::parse_input("'cd ~/work'").input, ["cd ~/work"]);
-        assert_eq!(super::parse_input("cd '~/work'").input, ["cd", "~/work"]);
-
-        // Double quotes
-        assert_eq!(
-            super::parse_input("\"Hello   world\"").input,
+            super::parse_input("'Hello   world'").unwrap().input,
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("\"Hello\"\"world\"").input,
+            super::parse_input("'Hello''world'").unwrap().input,
             ["Helloworld"]
         );
         assert_eq!(
-            super::parse_input("\"myvar is: $myvar\"").input,
+            super::parse_input("'myvar is: $myvar'").unwrap().input,
+            ["myvar is: $myvar"]
+        );
+        assert_eq!(
+            super::parse_input("myvar is: '$myvar'").unwrap().input,
+            ["myvar", "is:", "$myvar"]
+        );
+        assert_eq!(
+            super::parse_input("'cd ~/work'").unwrap().input,
+            ["cd ~/work"]
+        );
+        assert_eq!(
+            super::parse_input("cd '~/work'").unwrap().input,
+            ["cd", "~/work"]
+        );
+
+        // Double quotes
+        assert_eq!(
+            super::parse_input("\"Hello   world\"").unwrap().input,
+            ["Hello   world"]
+        );
+        assert_eq!(
+            super::parse_input("\"Hello\"\"world\"").unwrap().input,
+            ["Helloworld"]
+        );
+        assert_eq!(
+            super::parse_input("\"myvar is: $myvar\"").unwrap().input,
             ["myvar is: myvar_val"]
         );
         assert_eq!(
-            super::parse_input("myvar is: \"$myvar\"").input,
+            super::parse_input("myvar is: \"$myvar\"").unwrap().input,
             ["myvar", "is:", "myvar_val"]
         );
-        assert_eq!(super::parse_input("\"cd ~/work\"").input, ["cd ~/work"]);
-        assert_eq!(super::parse_input("cd \"~/work\"").input, ["cd", "~/work"]);
+        assert_eq!(
+            super::parse_input("\"cd ~/work\"").unwrap().input,
+            ["cd ~/work"]
+        );
+        assert_eq!(
+            super::parse_input("cd \"~/work\"").unwrap().input,
+            ["cd", "~/work"]
+        );
     }
 }
