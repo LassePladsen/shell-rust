@@ -116,36 +116,38 @@ fn handle_redirection(
         fd = digit as u8;
     }
 
-    let target_file = parse_redirection_file(chars);
-    let target_writer = Box::new(File::create(target_file)?);
-
-    match fd {
-        1 => params.stdout = target_writer,
-        2 => params.stderr = target_writer,
-        _ => (),
-    }
-    buf.clear();
-
-    Ok(())
-}
-
-fn parse_redirection_file(chars: &mut Peekable<Chars>) -> String {
-    let mut target_file = String::new();
+    let mut filename = String::new();
+    let mut append = false;
     while let Some(ch) = chars.peek() {
         // Allow optional whitespace between '>' and filename, but stop at the whitespace after the filename
         if *ch == ' ' {
-            if !target_file.is_empty() {
+            if !filename.is_empty() {
                 break;
             } else {
                 chars.next();
                 continue;
             }
+        } 
+        // '>>' means to append to file
+        else if *ch == '>' {
+            append = true;
+            chars.next();
+            continue;
         }
 
-        target_file.push(*ch);
+        filename.push(*ch);
         chars.next();
     }
-    target_file
+    let writer = Box::new(File::options().append(append).create(true).open(filename)?);
+
+    match fd {
+        1 => params.stdout = writer,
+        2 => params.stderr = writer,
+        _ => (),
+    }
+    buf.clear();
+
+    Ok(())
 }
 
 fn handle_single_quote_context(ch: char, buf: &mut String, context: &mut Context) {
