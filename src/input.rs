@@ -309,7 +309,9 @@ mod tests {
             ["cd", "~/work"]
         );
         assert_eq!(
-            super::parse_input(&format!("echo hei '> {FILENAME}'")).unwrap().input,
+            super::parse_input(&format!("echo hei '> {FILENAME}'"))
+                .unwrap()
+                .input,
             ["echo", "hei", &format!("> {FILENAME}")]
         );
 
