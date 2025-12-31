@@ -1,58 +1,52 @@
-use std::io::Write;
+use std::io::{BufRead, Write};
 
 use crate::command;
 use crate::input::{self, Input};
 
-use rustyline::config::Configurer;
-use rustyline::error::ReadlineError;
-use rustyline::{DefaultEditor, Result};
+pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
+    reader: &mut R,
+    stdout: &mut W1,
+    stderr: &mut W2,
+) {
+    // Init
+    _ = stdout.write(b"$ ");
+    stdout.flush().unwrap();
+    let mut buf = String::new();
+    let mut output: command::Output;
 
-pub fn start_repl() -> Result<()> {
-    // `()` can be used when no completer is required
-    let mut rl = DefaultEditor::new()?;
-    const HISTORY_FILE: &str = "/tmp/.shell-rust-history.txt";
-    _ = rl.load_history(HISTORY_FILE);
-    rl.set_completion_type(rustyline::CompletionType::List);
-
-    // The repl
-    loop {
-        // Read
-        let readline = rl.readline("$ ");
-
-        match readline {
-            Ok(line) => {
-                rl.add_history_entry(&line)?;
+    // Read
+    while reader.read_line(&mut buf).is_ok() {
+        match input::parse_input(buf.trim()) {
+            Ok(mut params) => {
+                let (cmd, args) = (&params.input[0], &params.input[1..]);
 
                 // Eval
-                match input::parse_input(&line) {
-                    Ok(mut params) => {
-                        let (cmd, args) = (&params.input[0], &params.input[1..]);
-                        let output = eval(cmd, args.to_vec());
+                output = eval(cmd, args.to_vec());
 
-                        // Print
-                        _ = params.stdout.write_all(&output.stdout);
-                        _ = params.stderr.write_all(&output.stderr);
-                        params.stdout.flush().unwrap();
-                    }
-                    Err(err) => {
-                        eprintln!("{err}");
-                    }
-                };
-            }
-            Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
-                break;
-            }
-            Err(err) => {
-                eprintln!("{err}");
-                break;
-            }
-        }
-    }
+                // Print
+                _ = params.stdout.write(&output.stdout);
+                _ = params.stderr.write(&output.stderr);
+                params.stdout.flush().unwrap();
 
-    if let Err(err) = rl.save_history(HISTORY_FILE) {
-        eprintln!("{err}");
+                // Restart
+                buf.clear();
+                _ = stdout.write(b"$ ");
+                stdout.flush().unwrap();
+            }
+            Err(e) => {
+                let mut s = e.to_string();
+                s.push('\n');
+
+                // Print
+                _ = stderr.write(s.as_bytes());
+
+                // Restart
+                buf.clear();
+                _ = stdout.write(b"$ ");
+                stdout.flush().unwrap();
+            }
+        };
     }
-    Ok(())
 }
 
 fn eval(cmd: &str, args: Input) -> command::Output {
