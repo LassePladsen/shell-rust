@@ -4,7 +4,6 @@ use std::{env, error, fmt, fs, io, os::unix::fs::PermissionsExt};
 pub enum Error {
     Io(io::Error),
     Env(env::VarError),
-    IsNotADirectory(String),
 }
 
 impl fmt::Display for Error {
@@ -12,7 +11,6 @@ impl fmt::Display for Error {
         match self {
             Error::Io(err) => write!(f, "{}", err),
             Error::Env(err) => write!(f, "{}", err),
-            Error::IsNotADirectory(err) => write!(f, "{}", err),
         }
     }
 }

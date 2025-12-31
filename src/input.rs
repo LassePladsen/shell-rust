@@ -2,7 +2,7 @@ use std::{
     default::Default,
     env,
     fs::File,
-    io::{self, Write, stderr, stdin, stdout},
+    io::{self, Write, stderr, stdout},
     iter::Peekable,
     str::Chars,
 };
