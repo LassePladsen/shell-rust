@@ -1,8 +1,8 @@
-use super::{CommandFn, Output, Args};
+use super::{Args, CommandFn, Output};
 use crate::env;
 use crate::file;
 
-pub fn get_cmd(cmd: &str) -> Option<CommandFn> {
+pub fn get_builtin(cmd: &str) -> Option<CommandFn> {
     match cmd {
         "type" => Some(type_),
         "echo" => Some(echo),
@@ -11,6 +11,10 @@ pub fn get_cmd(cmd: &str) -> Option<CommandFn> {
         "cd" => Some(cd),
         _ => None,
     }
+}
+
+pub fn is_builtin(cmd: &str) -> bool {
+    get_builtin(cmd).is_some()
 }
 
 fn cd(args: Args) -> Output {
@@ -47,7 +51,7 @@ fn type_(args: Args) -> Output {
         return Default::default();
     };
 
-    if get_cmd(cmd).is_some() {
+    if is_builtin(cmd) {
         return Output {
             stdout: format!("{cmd} is a shell builtin\n").into(),
             ..Default::default()

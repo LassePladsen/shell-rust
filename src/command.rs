@@ -55,7 +55,7 @@ impl From<io::Error> for CommandError {
 
 pub fn run(cmd: &str, args: Args) -> Result<Output> {
     // Run my builtins
-    if let Some(fn_) = builtin::get_cmd(cmd) {
+    if let Some(fn_) = builtin::get_builtin(cmd) {
         return Ok(fn_(args));
     }
 
