@@ -51,21 +51,27 @@ fn type_(args: Input) -> Output {
     if get_cmd(cmd).is_some() {
         return Output {
             stdout: format!("{cmd} is a shell builtin\n").into(),
-            stderr: Default::default(),
+            ..Default::default()
         };
     }
 
     if let Ok(paths) = env::get_paths()
         && let Some(path) = super::get_cmd_path(cmd, paths)
     {
-        return Output::default_with_stdout(format!("{cmd} is {path}\n").into());
+        return Output {
+            stdout: format!("{cmd} is {path}\n").into(),
+            ..Default::default()
+        };
     }
 
     super::notfound(cmd)
 }
 
 fn echo(args: Input) -> Output {
-    Output::default_with_stdout(format!("{}\n", args.join(" ")).into())
+    Output {
+        stdout: format!("{}\n", args.join(" ")).into(),
+        ..Default::default()
+    }
 }
 
 fn exit(args: Input) -> Output {

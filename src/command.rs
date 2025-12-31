@@ -6,33 +6,10 @@ use crate::input::Input;
 
 mod builtin;
 
-#[derive(Debug)]
+#[derive(Default)]
 pub struct Output {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
-}
-
-impl Output {
-    pub fn default_with_stdout(stdout: Vec<u8>) -> Self {
-        let mut output = Self::default();
-        output.stdout = stdout;
-        output
-    }
-
-    pub fn default_with_stderr(stderr: Vec<u8>) -> Self {
-        let mut output = Self::default();
-        output.stderr = stderr;
-        output
-    }
-}
-
-impl Default for Output {
-    fn default() -> Self {
-        Self {
-            stdout: Default::default(),
-            stderr: Default::default(),
-        }
-    }
 }
 
 impl From<process::Output> for Output {
@@ -121,5 +98,8 @@ pub fn spawn_ext_cmd(cmd: &str, args: Input, paths: Vec<String>) -> Result<Outpu
 }
 
 fn notfound(cmd: &str) -> Output {
-    Output::default_with_stdout(format!("{cmd}: not found\n").into())
+    Output {
+        stdout: format!("{cmd}: not found\n").into(),
+        ..Default::default()
+    }
 }

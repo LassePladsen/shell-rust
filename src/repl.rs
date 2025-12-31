@@ -52,6 +52,9 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
 fn eval(cmd: &str, args: Input) -> command::Output {
     match command::run(cmd, args) {
         Ok(output) => output,
-        Err(e) => command::Output::default_with_stderr(e.to_string().as_bytes().to_vec()),
+        Err(e) => command::Output {
+            stderr: e.to_string().as_bytes().to_vec(),
+            ..Default::default()
+        },
     }
 }
