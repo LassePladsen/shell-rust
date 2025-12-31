@@ -139,7 +139,13 @@ fn handle_redirection(
             }
         }
     }
-    let writer = Box::new(File::options().append(append).create(true).open(filename)?);
+    let writer = Box::new(
+        File::options()
+            .create(true)
+            .write(true)
+            .append(append)
+            .open(filename)?,
+    );
 
     match fd {
         1 => params.stdout = writer,
@@ -257,6 +263,8 @@ mod tests {
             std::env::set_var("HOME", "/home/myhome");
         }
 
+        const FILENAME: &str = "/tmp/12138791273217897832798623798631.something";
+
         // No quotes
         assert_eq!(
             super::parse_input("Hello   world").unwrap().input,
@@ -300,6 +308,10 @@ mod tests {
             super::parse_input("cd '~/work'").unwrap().input,
             ["cd", "~/work"]
         );
+        assert_eq!(
+            super::parse_input(&format!("echo hei '> {FILENAME}'")).unwrap().input,
+            ["echo", "hei", &format!("> {FILENAME}")]
+        );
 
         // Double quotes
         assert_eq!(
@@ -326,5 +338,33 @@ mod tests {
             super::parse_input("cd \"~/work\"").unwrap().input,
             ["cd", "~/work"]
         );
+        assert_eq!(
+            super::parse_input(&format!("echo hei \"> {FILENAME}\""))
+                .unwrap()
+                .input,
+            ["echo", "hei", &format!("> {FILENAME}")]
+        );
+
+        // Redirection
+        assert_eq!(
+            super::parse_input(&format!("echo hei > {FILENAME}"))
+                .unwrap()
+                .input,
+            ["echo", "hei"]
+        );
+        assert_eq!(
+            super::parse_input(&format!("echo hei >{FILENAME}"))
+                .unwrap()
+                .input,
+            ["echo", "hei"]
+        );
+        assert_eq!(
+            super::parse_input(&format!("echo hei 2>{FILENAME}"))
+                .unwrap()
+                .input,
+            ["echo", "hei"]
+        );
+
+        _ = std::fs::remove_file(FILENAME);
     }
 }
