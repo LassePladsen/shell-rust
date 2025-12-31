@@ -1,4 +1,4 @@
-use std::io;
+use rustyline::Result;
 
 mod command;
 mod env;
@@ -6,10 +6,7 @@ mod file;
 mod input;
 mod repl;
 
-fn main() {
-    repl::start_repl(
-        &mut io::BufReader::new(io::stdin()),
-        &mut io::stdout(),
-        &mut io::stderr(),
-    );
+fn main() -> Result<()> {
+    repl::start_repl()?;
+    Ok(())
 }
