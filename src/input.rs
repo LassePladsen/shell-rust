@@ -119,24 +119,25 @@ fn handle_redirection(
     let mut filename = String::new();
     let mut append = false;
     while let Some(ch) = chars.peek() {
-        // Allow optional whitespace between '>' and filename, but stop at the whitespace after the filename
-        if *ch == ' ' {
-            if !filename.is_empty() {
-                break;
-            } else {
-                chars.next();
-                continue;
+        match ch {
+            // Allow optional whitespace between '>' and filename, but stop at the whitespace after the filename
+            ' ' => {
+                if !filename.is_empty() {
+                    break;
+                } else {
+                    chars.next();
+                }
             }
-        } 
-        // '>>' means to append to file
-        else if *ch == '>' {
-            append = true;
-            chars.next();
-            continue;
+            // '>>' means to append to file
+            '>' => {
+                append = true;
+                chars.next();
+            }
+            _ => {
+                filename.push(*ch);
+                chars.next();
+            }
         }
-
-        filename.push(*ch);
-        chars.next();
     }
     let writer = Box::new(File::options().append(append).create(true).open(filename)?);
 
