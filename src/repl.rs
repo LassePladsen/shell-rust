@@ -92,50 +92,88 @@ mod tests {
     #[test]
     fn repl_single_command() {
         let (stdout_str, _) = run_repl(b"echo hello\n");
-        assert!(stdout_str.starts_with("$ "));
-        assert!(stdout_str.contains("hello"));
+        assert!(
+            stdout_str.starts_with("$ "),
+            "stdout should start with prompt, got: {}",
+            stdout_str
+        );
+        assert!(
+            stdout_str.contains("hello"),
+            "stdout should contain 'hello', got: {}",
+            stdout_str
+        );
     }
 
     #[test]
     fn repl_multiple_commands() {
         let (stdout_str, _) = run_repl(b"echo first\necho second\n");
-        // Should have two prompts
-        assert_eq!(stdout_str.matches("$ ").count(), 2);
-        assert!(stdout_str.contains("first"));
-        assert!(stdout_str.contains("second"));
+        assert_eq!(
+            stdout_str.matches("$ ").count(),
+            2,
+            "should have two prompts, got: {}",
+            stdout_str
+        );
+        assert!(
+            stdout_str.contains("first"),
+            "stdout should contain 'first', got: {}",
+            stdout_str
+        );
+        assert!(
+            stdout_str.contains("second"),
+            "stdout should contain 'second', got: {}",
+            stdout_str
+        );
     }
 
     #[test]
     fn repl_empty_input() {
         let (stdout_str, _) = run_repl(b"\n");
-        // Should have initial prompt and one after empty line
-        assert_eq!(stdout_str.matches("$ ").count(), 2);
+        assert_eq!(
+            stdout_str.matches("$ ").count(),
+            2,
+            "should have initial prompt and one after empty line, got: {}",
+            stdout_str
+        );
     }
 
     #[test]
     fn repl_parse_error() {
         let (_, stderr_str) = run_repl(b"|\n");
-        // Should have error message in stderr
-        assert!(!stderr_str.is_empty());
+        assert!(
+            !stderr_str.is_empty(),
+            "stderr should have error message, got: {}",
+            stderr_str
+        );
     }
 
     #[test]
     fn repl_initial_prompt() {
         let (stdout_str, _) = run_repl(b"");
-        assert_eq!(stdout_str, "$ ");
+        assert_eq!(
+            stdout_str, "$ ",
+            "should display initial prompt, got: {}",
+            stdout_str
+        );
     }
 
     #[test]
     fn repl_whitespace_handling() {
         let (stdout_str, _) = run_repl(b"  echo test  \n");
-        assert!(stdout_str.contains("test"));
+        assert!(
+            stdout_str.contains("test"),
+            "stdout should contain 'test' after trimming whitespace, got: {}",
+            stdout_str
+        );
     }
 
     #[test]
     fn repl_stderr_separation() {
-        let (stdout_str, _) = run_repl(b"some_error_command\n");
-        // Verify that stderr and stdout are properly separated
-        assert!(stdout_str.starts_with("$ "));
-        // stderr may or may not have content depending on command implementation
+        let (stdout_str, stderr_str) = run_repl(b"some_error_command\n");
+        assert!(
+            stdout_str.starts_with("$ "),
+            "stdout should start with prompt, got stdout: {}, stderr: {}",
+            stdout_str,
+            stderr_str
+        );
     }
 }
