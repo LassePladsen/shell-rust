@@ -1,4 +1,4 @@
-use super::{Args, CommandFn, Output};
+use super::{ArgsSlice, CommandFn, Output};
 use crate::env;
 use crate::file;
 
@@ -17,7 +17,7 @@ pub fn is_builtin(cmd: &str) -> bool {
     get_builtin(cmd).is_some()
 }
 
-fn cd(args: Args) -> Output {
+fn cd(args: ArgsSlice) -> Output {
     let path = match args.first() {
         Some(path) => path,
         None => "~", // Defaults to cd'ing home if no args
@@ -37,7 +37,7 @@ fn cd(args: Args) -> Output {
     }
 }
 
-fn pwd(_args: Args) -> Output {
+fn pwd(_args: ArgsSlice) -> Output {
     let mut output = Output::default();
     match std::env::current_dir() {
         Ok(pathbuf) => output.stdout = format!("{}\n", pathbuf.to_string_lossy()).into(),
@@ -46,7 +46,7 @@ fn pwd(_args: Args) -> Output {
     output
 }
 
-fn type_(args: Args) -> Output {
+fn type_(args: ArgsSlice) -> Output {
     let Some(cmd) = args.first() else {
         return Default::default();
     };
@@ -70,14 +70,14 @@ fn type_(args: Args) -> Output {
     super::notfound(cmd)
 }
 
-fn echo(args: Args) -> Output {
+fn echo(args: ArgsSlice) -> Output {
     Output {
         stdout: format!("{}\n", args.join(" ")).into(),
         ..Default::default()
     }
 }
 
-fn exit(args: Args) -> Output {
+fn exit(args: ArgsSlice) -> Output {
     std::process::exit(
         args.first()
             .map_or(0, |i| i.parse().expect("Expected integer exit code")),

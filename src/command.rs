@@ -1,16 +1,26 @@
-use std::{error, fmt, io, process};
+use std::{
+    error,
+    fmt::{self, Debug, Display, Formatter},
+    io::{self, Write, stderr, stdout},
+    process::{self, Stdio},
+};
 
-use crate::env;
 use crate::file;
 pub use crate::input::Args;
+use crate::{env, input::ArgsSlice};
 
 mod builtin;
 
-
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct Output {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
+}
+
+impl Output {
+    pub fn is_empty(&self) -> bool {
+        self.stdout.is_empty() && self.stderr.is_empty()
+    }
 }
 
 impl From<process::Output> for Output {
@@ -22,7 +32,45 @@ impl From<process::Output> for Output {
     }
 }
 
-type CommandFn = fn(Args) -> Output;
+#[derive(Debug, Default, Clone)]
+pub struct Command {
+    pub args: Args,
+    pub output: Output,
+}
+
+pub struct Pipeline {
+    pub commands: Vec<Command>,
+    pub stdout_writer: Box<dyn Write>,
+    pub stderr_writer: Box<dyn Write>,
+}
+
+impl Default for Pipeline {
+    fn default() -> Self {
+        Self {
+            commands: Default::default(),
+            stdout_writer: Box::new(stdout()),
+            stderr_writer: Box::new(stderr()),
+        }
+    }
+}
+
+impl Debug for Pipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Pipeline")
+            .field("commands", &self.commands)
+            .finish()
+    }
+}
+
+impl Iterator for Pipeline {
+    type Item = Command;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.commands.clone().into_iter().next()
+    }
+}
+
+type CommandFn = fn(ArgsSlice) -> Output;
 type Result<T> = std::result::Result<T, CommandError>;
 
 #[derive(Debug)]
@@ -31,8 +79,8 @@ pub enum CommandError {
     CommandNotFound(String),
 }
 
-impl fmt::Display for CommandError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for CommandError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             CommandError::Io(err) => write!(f, "{}", err),
             CommandError::CommandNotFound(err) => write!(f, "{}", err),
@@ -54,7 +102,7 @@ impl From<io::Error> for CommandError {
     }
 }
 
-pub fn run(cmd: &str, args: Args) -> Result<Output> {
+pub fn run(cmd: &str, args: &[String], stdin: Output) -> Result<Output> {
     // Run my builtins
     if let Some(fn_) = builtin::get_builtin(cmd) {
         return Ok(fn_(args));
@@ -62,7 +110,7 @@ pub fn run(cmd: &str, args: Args) -> Result<Output> {
 
     // Run external command
     if let Ok(paths) = env::get_paths()
-        && let Ok(output) = spawn_ext_cmd(cmd, args, paths)
+        && let Ok(output) = spawn_ext_cmd(cmd, args, paths, stdin)
     {
         return Ok(output);
     }
@@ -86,10 +134,15 @@ pub fn cmd_in_paths(cmd: &str, paths: Vec<String>) -> bool {
     get_cmd_path(cmd, paths).is_some()
 }
 
-pub fn spawn_ext_cmd(cmd: &str, args: Args, paths: Vec<String>) -> Result<Output> {
+pub fn spawn_ext_cmd(
+    cmd: &str,
+    args: ArgsSlice,
+    paths: Vec<String>,
+    stdin: Output,
+) -> Result<Output> {
     if cmd_in_paths(cmd, paths) {
-        let mut ext_cmd = std::process::Command::new(cmd);
-        ext_cmd.args(args);
+        let mut ext_cmd = process::Command::new(cmd);
+        ext_cmd.args(args).stdin(Stdio::from(stdin.stdout));
         return Ok(ext_cmd.output()?.into());
     }
 

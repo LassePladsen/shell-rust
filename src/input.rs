@@ -1,42 +1,9 @@
-use std::{
-    default::Default,
-    env,
-    fmt::Debug,
-    fs::File,
-    io::{self, Write, stderr, stdout},
-    iter::Peekable,
-    mem,
-    str::Chars,
-};
+use std::{default::Default, env, fmt::Debug, fs::File, io, iter::Peekable, mem, str::Chars};
 
-#[derive(Debug, Default, Clone)]
-pub struct Command {
-    pub args: Args,
-}
-
-pub struct CommandPipeline {
-    pub commands: Vec<Command>,
-    pub stdout: Box<dyn Write>,
-    pub stderr: Box<dyn Write>,
-}
-
-impl Debug for CommandPipeline {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CommandPipeline")
-            .field("commands", &self.commands)
-            .finish()
-    }
-}
-
-impl Iterator for CommandPipeline {
-    type Item = Command;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.commands.clone().into_iter().next()
-    }
-}
+use crate::command::{Command, Pipeline};
 
 pub type Args = Vec<String>;
+pub type ArgsSlice<'a> = &'a [String];
 
 #[derive(Debug)]
 enum Context {
@@ -47,9 +14,9 @@ enum Context {
 }
 
 /// Parses and resolves input in a single pass using a context system
-pub fn parse_input(input: &str) -> io::Result<CommandPipeline> {
-    let mut pipeline = CommandPipeline::default();
-    let mut params = Command::default();
+pub fn parse_input(input: &str) -> io::Result<Pipeline> {
+    let mut pipeline = Pipeline::default();
+    let mut command = Command::default();
     if input.is_empty() {
         return Ok(pipeline);
     }
@@ -67,7 +34,7 @@ pub fn parse_input(input: &str) -> io::Result<CommandPipeline> {
                 &mut buf,
                 &mut resolved_args,
                 &mut context,
-                &mut params,
+                &mut command,
                 &mut pipeline,
             )?,
             Context::Escaped => {
@@ -88,8 +55,8 @@ pub fn parse_input(input: &str) -> io::Result<CommandPipeline> {
     }
 
     // Add the last command
-    params.args = resolved_args;
-    pipeline.push(params);
+    command.args = resolved_args;
+    pipeline.commands.push(command);
 
     Ok(pipeline)
 }
@@ -100,8 +67,8 @@ fn handle_normal_context(
     buf: &mut String,
     resolved_args: &mut Vec<String>,
     context: &mut Context,
-    params: &mut Command,
-    pipeline: &mut CommandPipeline,
+    command: &mut Command,
+    pipeline: &mut Pipeline,
 ) -> io::Result<()> {
     match ch {
         // Start new context
@@ -114,8 +81,8 @@ fn handle_normal_context(
         '$' => expand_variable(chars, buf),
 
         // Redirection & pipeline
-        '>' => handle_redirection(chars, buf, params)?,
-        '|' => pipe(chars, buf, params, pipeline, context, resolved_args),
+        '>' => handle_redirection(chars, buf, pipeline)?,
+        '|' => pipe(chars, buf, command, pipeline, context, resolved_args),
 
         _ if ch.is_whitespace() => separate_token(buf, resolved_args),
         _ => buf.push(ch),
@@ -127,13 +94,13 @@ fn pipe(
     chars: &mut Peekable<Chars>,
     buf: &mut String,
     params: &mut Command,
-    pipeline: &mut CommandPipeline,
+    pipeline: &mut Pipeline,
     context: &mut Context,
     resolved_args: &mut Vec<String>,
 ) {
     // This is the end of this command, add it to the pipeline and reset the states for the new piped command
     params.args = mem::take(resolved_args);
-    pipeline.push(mem::take(params));
+    pipeline.commands.push(mem::take(params));
     *buf = Default::default();
     *context = Context::Normal;
 
@@ -143,7 +110,7 @@ fn pipe(
 fn handle_redirection(
     chars: &mut Peekable<Chars>,
     buf: &mut String,
-    params: &mut Command,
+    pipeline: &mut Pipeline,
 ) -> io::Result<()> {
     // Default file descriptor stdout
     let mut fd: u8 = 1;
@@ -186,8 +153,8 @@ fn handle_redirection(
     );
 
     match fd {
-        1 => params.stdout = writer,
-        2 => params.stderr = writer,
+        1 => pipeline.stdout_writer = writer,
+        2 => pipeline.stderr_writer = writer,
         _ => (),
     }
     buf.clear();
@@ -307,6 +274,7 @@ mod tests {
         assert_eq!(
             super::parse_input("Hello   world")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -315,6 +283,7 @@ mod tests {
         assert_eq!(
             super::parse_input("myvar is: $myvar")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -323,6 +292,7 @@ mod tests {
         assert_eq!(
             super::parse_input("cd ~/work")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -333,6 +303,7 @@ mod tests {
         assert_eq!(
             super::parse_input("'Hello   world'")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -341,6 +312,7 @@ mod tests {
         assert_eq!(
             super::parse_input("'Hello   world'")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -349,6 +321,7 @@ mod tests {
         assert_eq!(
             super::parse_input("'Hello''world'")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -357,6 +330,7 @@ mod tests {
         assert_eq!(
             super::parse_input("'myvar is: $myvar'")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -365,6 +339,7 @@ mod tests {
         assert_eq!(
             super::parse_input("myvar is: '$myvar'")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -373,6 +348,7 @@ mod tests {
         assert_eq!(
             super::parse_input("'cd ~/work'")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -381,6 +357,7 @@ mod tests {
         assert_eq!(
             super::parse_input("cd '~/work'")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -389,6 +366,7 @@ mod tests {
         assert_eq!(
             super::parse_input(&format!("echo hei '> {FILENAME}'"))
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -399,6 +377,7 @@ mod tests {
         assert_eq!(
             super::parse_input("\"Hello   world\"")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -407,6 +386,7 @@ mod tests {
         assert_eq!(
             super::parse_input("\"Hello\"\"world\"")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -415,6 +395,7 @@ mod tests {
         assert_eq!(
             super::parse_input("\"myvar is: $myvar\"")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -423,6 +404,7 @@ mod tests {
         assert_eq!(
             super::parse_input("myvar is: \"$myvar\"")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -431,6 +413,7 @@ mod tests {
         assert_eq!(
             super::parse_input("\"cd ~/work\"")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -439,6 +422,7 @@ mod tests {
         assert_eq!(
             super::parse_input("cd \"~/work\"")
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -447,6 +431,7 @@ mod tests {
         assert_eq!(
             super::parse_input(&format!("echo hei \"> {FILENAME}\""))
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -457,6 +442,7 @@ mod tests {
         assert_eq!(
             super::parse_input(&format!("echo hei > {FILENAME}"))
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -465,6 +451,7 @@ mod tests {
         assert_eq!(
             super::parse_input(&format!("echo hei >{FILENAME}"))
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
@@ -473,6 +460,7 @@ mod tests {
         assert_eq!(
             super::parse_input(&format!("echo hei 2>{FILENAME}"))
                 .unwrap()
+                .commands
                 .first()
                 .unwrap()
                 .args,
