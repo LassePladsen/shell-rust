@@ -3,11 +3,7 @@ use std::io::{BufRead, Write};
 use crate::command::{Output, Pipeline, run};
 use crate::input::{self, ArgsSlice};
 
-pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
-    reader: &mut R,
-    stdout: &mut W1,
-    stderr: &mut W2,
-) {
+pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &mut impl Write) {
     // Init
     _ = stdout.write(b"$ ");
     stdout.flush().unwrap();
