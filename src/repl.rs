@@ -5,12 +5,12 @@ use crate::input::{self, ArgsSlice};
 
 pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     reader: &mut R,
-    stdout_writer: &mut W1,
-    stderr_writer: &mut W2,
+    stdout: &mut W1,
+    stderr: &mut W2,
 ) {
     // Init
-    _ = stdout_writer.write(b"$ ");
-    stdout_writer.flush().unwrap();
+    _ = stdout.write(b"$ ");
+    stdout.flush().unwrap();
     let mut buf = String::new();
     // Read
     loop {
@@ -22,22 +22,23 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
                     Ok(mut pipeline) => {
                         // Eval
                         let output = eval_pipeline(&pipeline);
+
                         // Print
-                        _ = pipeline.stdout_writer.write(&output.stdout);
-                        _ = pipeline.stderr_writer.write(&output.stderr);
-                        pipeline.stdout_writer.flush().unwrap();
+                        _ = pipeline.stdout.write(&output.stdout);
+                        _ = pipeline.stderr.write(&output.stderr);
+                        pipeline.stdout.flush().unwrap();
                     }
                     Err(e) => {
                         let mut s = e.to_string();
                         s.push('\n');
                         // Print
-                        _ = stderr_writer.write(s.as_bytes());
+                        _ = stderr.write(s.as_bytes());
                     }
                 };
                 // Restart
                 buf.clear();
-                _ = stdout_writer.write(b"$ ");
-                stdout_writer.flush().unwrap();
+                _ = stdout.write(b"$ ");
+                stdout.flush().unwrap();
             }
             Err(_) => break, // Error reading
         }

@@ -40,16 +40,16 @@ pub struct Command {
 
 pub struct Pipeline {
     pub commands: Vec<Command>,
-    pub stdout_writer: Box<dyn Write>,
-    pub stderr_writer: Box<dyn Write>,
+    pub stdout: Box<dyn Write>,
+    pub stderr: Box<dyn Write>,
 }
 
 impl Default for Pipeline {
     fn default() -> Self {
         Self {
             commands: Default::default(),
-            stdout_writer: Box::new(stdout()),
-            stderr_writer: Box::new(stderr()),
+            stdout: Box::new(stdout()),
+            stderr: Box::new(stderr()),
         }
     }
 }

@@ -153,8 +153,8 @@ fn handle_redirection(
     );
 
     match fd {
-        1 => pipeline.stdout_writer = writer,
-        2 => pipeline.stderr_writer = writer,
+        1 => pipeline.stdout = writer,
+        2 => pipeline.stderr = writer,
         _ => (),
     }
     buf.clear();
