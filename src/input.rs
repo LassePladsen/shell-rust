@@ -259,18 +259,19 @@ fn parse_var_name(chars: &mut Peekable<Chars>) -> String {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn parse_input() {
+    const TMP_FILE: &str = "/tmp/12138791273217897832798623798631.something";
+    fn init_myvar() {
         unsafe {
             std::env::set_var("myvar", "myvar_val");
         }
         unsafe {
             std::env::set_var("HOME", "/home/myhome");
         }
+    }
 
-        const FILENAME: &str = "/tmp/12138791273217897832798623798631.something";
-
-        // No quotes
+    #[test]
+    fn parse_input_normal() {
+        init_myvar();
         assert_eq!(
             super::parse_input("Hello   world")
                 .unwrap()
@@ -298,8 +299,11 @@ mod tests {
                 .args,
             ["cd", "/home/myhome/work"]
         );
+    }
 
-        // Single quotes
+    #[test]
+    fn parse_input_single_quote() {
+        init_myvar();
         assert_eq!(
             super::parse_input("'Hello   world'")
                 .unwrap()
@@ -364,16 +368,20 @@ mod tests {
             ["cd", "~/work"]
         );
         assert_eq!(
-            super::parse_input(&format!("echo hei '> {FILENAME}'"))
+            super::parse_input(&format!("echo hei '> {TMP_FILE}'"))
                 .unwrap()
                 .commands
                 .first()
                 .unwrap()
                 .args,
-            ["echo", "hei", &format!("> {FILENAME}")]
+            ["echo", "hei", &format!("> {TMP_FILE}")]
         );
+    }
 
-        // Double quotes
+    #[test]
+    fn parse_input_double_quotes() {
+        init_myvar();
+
         assert_eq!(
             super::parse_input("\"Hello   world\"")
                 .unwrap()
@@ -429,44 +437,46 @@ mod tests {
             ["cd", "~/work"]
         );
         assert_eq!(
-            super::parse_input(&format!("echo hei \"> {FILENAME}\""))
+            super::parse_input(&format!("echo hei \"> {TMP_FILE}\""))
                 .unwrap()
                 .commands
                 .first()
                 .unwrap()
                 .args,
-            ["echo", "hei", &format!("> {FILENAME}")]
+            ["echo", "hei", &format!("> {TMP_FILE}")]
         );
+    }
 
-        // Redirection
-        assert_eq!(
-            super::parse_input(&format!("echo hei > {FILENAME}"))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["echo", "hei"]
-        );
-        assert_eq!(
-            super::parse_input(&format!("echo hei >{FILENAME}"))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["echo", "hei"]
-        );
-        assert_eq!(
-            super::parse_input(&format!("echo hei 2>{FILENAME}"))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["echo", "hei"]
-        );
+    #[test]
+    fn parse_input_redirection() {
+        init_myvar();
 
-        _ = std::fs::remove_file(FILENAME);
+        assert_eq!(
+            super::parse_input(&format!("echo hei > {TMP_FILE}"))
+                .unwrap()
+                .commands
+                .first()
+                .unwrap()
+                .args,
+            ["echo", "hei"]
+        );
+        assert_eq!(
+            super::parse_input(&format!("echo hei >{TMP_FILE}"))
+                .unwrap()
+                .commands
+                .first()
+                .unwrap()
+                .args,
+            ["echo", "hei"]
+        );
+        assert_eq!(
+            super::parse_input(&format!("echo hei 2>{TMP_FILE}"))
+                .unwrap()
+                .commands
+                .first()
+                .unwrap()
+                .args,
+            ["echo", "hei"]
+        );
     }
 }
