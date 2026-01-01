@@ -12,32 +12,34 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     _ = stdout_writer.write(b"$ ");
     stdout_writer.flush().unwrap();
     let mut buf = String::new();
-
     // Read
-    while reader.read_line(&mut buf).is_ok() {
-        match input::parse_input(buf.trim()) {
-            Ok(mut pipeline) => {
-                // Eval
-                let output = eval_pipeline(&pipeline);
-
-                // Print
-                // Print
-                _ = pipeline.stdout_writer.write(&output.stdout);
-                _ = pipeline.stderr_writer.write(&output.stderr);
-                pipeline.stdout_writer.flush().unwrap();
+    loop {
+        match reader.read_line(&mut buf) {
+            Ok(0) => break, // EOF reached
+            Ok(_) => {
+                match input::parse_input(buf.trim()) {
+                    Ok(mut pipeline) => {
+                        // Eval
+                        let output = eval_pipeline(&pipeline);
+                        // Print
+                        _ = pipeline.stdout_writer.write(&output.stdout);
+                        _ = pipeline.stderr_writer.write(&output.stderr);
+                        pipeline.stdout_writer.flush().unwrap();
+                    }
+                    Err(e) => {
+                        let mut s = e.to_string();
+                        s.push('\n');
+                        // Print
+                        _ = stderr_writer.write(s.as_bytes());
+                    }
+                };
+                // Restart
+                buf.clear();
+                _ = stdout_writer.write(b"$ ");
+                stdout_writer.flush().unwrap();
             }
-            Err(e) => {
-                let mut s = e.to_string();
-                s.push('\n');
-
-                // Print
-                _ = stderr_writer.write(s.as_bytes());
-            }
-        };
-        // Restart
-        buf.clear();
-        _ = stdout_writer.write(b"$ ");
-        stdout_writer.flush().unwrap();
+            Err(_) => break, // Error reading
+        }
     }
 }
 
