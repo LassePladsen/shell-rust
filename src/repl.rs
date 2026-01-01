@@ -71,6 +71,8 @@ fn eval_cmd(cmd: &str, args: ArgsSlice, pipe_output: Option<Output>) -> Output {
 }
 
 // Claude unit tests >:)
+// TODO: rewrite start_repl such that it uses the input stdout+stderr in the pipeline. This was
+// such an incredibly difficult rewrite that i gave up for now. These tests won't work until then.
 #[cfg(test)]
 mod tests {
     use super::*;
