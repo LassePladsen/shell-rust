@@ -15,6 +15,7 @@ pub fn start_repl<R: BufRead, W1: Write, W2: Write>(
     // Read
     loop {
         match reader.read_line(&mut buf) {
+            // TODO: check EOF reached in the buffer too?
             Ok(0) => break, // EOF reached
             Ok(_) => {
                 match input::parse_input(buf.trim()) {
@@ -92,18 +93,11 @@ mod tests {
     #[test]
     fn repl_single_command() {
         let (stdout_str, _) = run_repl(b"echo hello\n");
-        assert!(
-            stdout_str.starts_with("$ "),
-            "stdout should start with prompt, got: {}",
-            stdout_str
-        );
-        assert!(
-            stdout_str.contains("hello"),
-            "stdout should contain 'hello', got: {}",
-            stdout_str
-        );
+        assert_eq!(stdout_str, "hello\n$ ");
     }
 
+    // TODO: rewrite unit tests to use assert_eq instead of checking contains (at least for the
+    // simple ones)
     #[test]
     fn repl_multiple_commands() {
         let (stdout_str, _) = run_repl(b"echo first\necho second\n");
