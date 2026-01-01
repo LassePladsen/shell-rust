@@ -17,6 +17,7 @@ pub struct Output {
     pub stderr: Vec<u8>,
 }
 
+#[allow(dead_code)]
 impl Output {
     pub fn is_empty(&self) -> bool {
         self.stdout.is_empty() && self.stderr.is_empty()
@@ -35,7 +36,6 @@ impl From<process::Output> for Output {
 #[derive(Debug, Default, Clone)]
 pub struct Command {
     pub args: Args,
-    pub output: Output,
 }
 
 pub struct Pipeline {
@@ -76,6 +76,7 @@ type Result<T> = std::result::Result<T, CommandError>;
 #[derive(Debug)]
 pub enum CommandError {
     Io(io::Error),
+    PipeError(String),
     CommandNotFound(String),
 }
 
@@ -83,6 +84,7 @@ impl Display for CommandError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             CommandError::Io(err) => write!(f, "{}", err),
+            CommandError::PipeError(err) => write!(f, "{}", err),
             CommandError::CommandNotFound(err) => write!(f, "{}", err),
         }
     }
@@ -102,7 +104,7 @@ impl From<io::Error> for CommandError {
     }
 }
 
-pub fn run(cmd: &str, args: &[String], stdin: Output) -> Result<Output> {
+pub fn run(cmd: &str, args: &[String], pipe_output: Option<Output>) -> Result<Output> {
     // Run my builtins
     if let Some(fn_) = builtin::get_builtin(cmd) {
         return Ok(fn_(args));
@@ -110,7 +112,7 @@ pub fn run(cmd: &str, args: &[String], stdin: Output) -> Result<Output> {
 
     // Run external command
     if let Ok(paths) = env::get_paths()
-        && let Ok(output) = spawn_ext_cmd(cmd, args, paths, stdin)
+        && let Ok(output) = spawn_ext_cmd(cmd, args, paths, pipe_output)
     {
         return Ok(output);
     }
@@ -138,17 +140,37 @@ pub fn spawn_ext_cmd(
     cmd: &str,
     args: ArgsSlice,
     paths: Vec<String>,
-    stdin: Output,
+    pipe_output: Option<Output>,
 ) -> Result<Output> {
-    if cmd_in_paths(cmd, paths) {
-        let mut ext_cmd = process::Command::new(cmd);
-        ext_cmd.args(args).stdin(Stdio::from(stdin.stdout));
-        return Ok(ext_cmd.output()?.into());
+    if !cmd_in_paths(cmd, paths) {
+        return Err(CommandError::CommandNotFound(format!(
+            "Command {cmd} not found in path."
+        )));
     }
 
-    Err(CommandError::CommandNotFound(format!(
-        "Command {cmd} not found in path."
-    )))
+    if pipe_output.is_none() {
+        return Ok(std::process::Command::new(cmd).args(args).output()?.into());
+    }
+
+    // From here on out this is a piped command
+    let pipe_output = pipe_output.unwrap();
+    let mut child = std::process::Command::new(cmd)
+        .args(args)
+        .stdin(Stdio::piped())
+        .spawn()?;
+
+    // Write output from previous command in pipeline to child stdin
+    match child.stdin.take() {
+        Some(mut stdin) => {
+            _ = stdin.write(&pipe_output.stdout);
+            return Ok(child.wait_with_output()?.into());
+        }
+        None => {
+            return Err(CommandError::PipeError(
+                "Could not write piped output to new command child stdin".to_string(),
+            ));
+        }
+    }
 }
 
 fn notfound(cmd: &str) -> Output {
