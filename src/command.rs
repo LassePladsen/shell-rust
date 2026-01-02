@@ -173,7 +173,7 @@ pub fn spawn_ext_cmd(
 
 fn notfound(cmd: &str) -> Output {
     Output {
-        stdout: format!("{cmd}: not found\n").into(),
+        stderr: format!("{cmd}: not found\n").into(),
         ..Default::default()
     }
 }
