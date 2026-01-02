@@ -259,6 +259,8 @@ fn parse_var_name(chars: &mut Peekable<Chars>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::input::Args;
+
     const TMP_FILE: &str = "/tmp/12138791273217897832798623798631.something";
     fn init_myvar() {
         unsafe {
@@ -269,34 +271,29 @@ mod tests {
         }
     }
 
+    fn get_args_from_parse_input(input: &str) -> Args {
+        super::parse_input(input)
+            .unwrap()
+            .commands
+            .first()
+            .unwrap()
+            .args
+            .clone()
+    }
+
     #[test]
     fn parse_input_normal() {
         init_myvar();
         assert_eq!(
-            super::parse_input("Hello   world")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("Hello   world"),
             ["Hello", "world"]
         );
         assert_eq!(
-            super::parse_input("myvar is: $myvar")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("myvar is: $myvar"),
             ["myvar", "is:", "myvar_val"]
         );
         assert_eq!(
-            super::parse_input("cd ~/work")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("cd ~/work"),
             ["cd", "/home/myhome/work"]
         );
     }
@@ -305,75 +302,26 @@ mod tests {
     fn parse_input_single_quote() {
         init_myvar();
         assert_eq!(
-            super::parse_input("'Hello   world'")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("'Hello   world'"),
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("'Hello   world'")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("'Hello   world'"),
             ["Hello   world"]
         );
+        assert_eq!(get_args_from_parse_input("'Hello''world'"), ["Helloworld"]);
         assert_eq!(
-            super::parse_input("'Hello''world'")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["Helloworld"]
-        );
-        assert_eq!(
-            super::parse_input("'myvar is: $myvar'")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("'myvar is: $myvar'"),
             ["myvar is: $myvar"]
         );
         assert_eq!(
-            super::parse_input("myvar is: '$myvar'")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("myvar is: '$myvar'"),
             ["myvar", "is:", "$myvar"]
         );
+        assert_eq!(get_args_from_parse_input("'cd ~/work'"), ["cd ~/work"]);
+        assert_eq!(get_args_from_parse_input("cd '~/work'"), ["cd", "~/work"]);
         assert_eq!(
-            super::parse_input("'cd ~/work'")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["cd ~/work"]
-        );
-        assert_eq!(
-            super::parse_input("cd '~/work'")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["cd", "~/work"]
-        );
-        assert_eq!(
-            super::parse_input(&format!("echo hei '> {TMP_FILE}'"))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input(&format!("echo hei '> {TMP_FILE}'")),
             ["echo", "hei", &format!("> {TMP_FILE}")]
         );
     }
@@ -383,66 +331,25 @@ mod tests {
         init_myvar();
 
         assert_eq!(
-            super::parse_input("\"Hello   world\"")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("\"Hello   world\""),
             ["Hello   world"]
         );
         assert_eq!(
-            super::parse_input("\"Hello\"\"world\"")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("\"Hello\"\"world\""),
             ["Helloworld"]
         );
         assert_eq!(
-            super::parse_input("\"myvar is: $myvar\"")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("\"myvar is: $myvar\""),
             ["myvar is: myvar_val"]
         );
         assert_eq!(
-            super::parse_input("myvar is: \"$myvar\"")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input("myvar is: \"$myvar\""),
             ["myvar", "is:", "myvar_val"]
         );
+        assert_eq!(get_args_from_parse_input("\"cd ~/work\""), ["cd ~/work"]);
+        assert_eq!(get_args_from_parse_input("cd \"~/work\""), ["cd", "~/work"]);
         assert_eq!(
-            super::parse_input("\"cd ~/work\"")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["cd ~/work"]
-        );
-        assert_eq!(
-            super::parse_input("cd \"~/work\"")
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
-            ["cd", "~/work"]
-        );
-        assert_eq!(
-            super::parse_input(&format!("echo hei \"> {TMP_FILE}\""))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input(&format!("echo hei \"> {TMP_FILE}\"")),
             ["echo", "hei", &format!("> {TMP_FILE}")]
         );
     }
@@ -452,30 +359,15 @@ mod tests {
         init_myvar();
 
         assert_eq!(
-            super::parse_input(&format!("echo hei > {TMP_FILE}"))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input(&format!("echo hei > {TMP_FILE}")),
             ["echo", "hei"]
         );
         assert_eq!(
-            super::parse_input(&format!("echo hei >{TMP_FILE}"))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input(&format!("echo hei >{TMP_FILE}")),
             ["echo", "hei"]
         );
         assert_eq!(
-            super::parse_input(&format!("echo hei 2>{TMP_FILE}"))
-                .unwrap()
-                .commands
-                .first()
-                .unwrap()
-                .args,
+            get_args_from_parse_input(&format!("echo hei 2>{TMP_FILE}")),
             ["echo", "hei"]
         );
     }
