@@ -163,13 +163,11 @@ pub fn spawn_ext_cmd(
     match child.stdin.take() {
         Some(mut stdin) => {
             _ = stdin.write(&pipe_output.stdout);
-            return Ok(child.wait_with_output()?.into());
+            Ok(child.wait_with_output()?.into())
         }
-        None => {
-            return Err(CommandError::PipeError(
-                "Could not write piped output to new command child stdin".to_string(),
-            ));
-        }
+        None => Err(CommandError::PipeError(
+            "Could not write piped output to new command child stdin".to_string(),
+        )),
     }
 }
 
