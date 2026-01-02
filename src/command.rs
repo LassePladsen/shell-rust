@@ -1,7 +1,7 @@
 use std::{
     error,
     fmt::{self, Debug, Display, Formatter},
-    io::{self, Write, stderr, stdout},
+    io::{self, Write},
     process::{self, Stdio},
 };
 
@@ -40,16 +40,16 @@ pub struct Command {
 
 pub struct Pipeline {
     pub commands: Vec<Command>,
-    pub stdout: Box<dyn Write>,
-    pub stderr: Box<dyn Write>,
+    pub stdout: Option<Box<dyn Write>>, // Redirected stdout writer, None means use caller provided writer
+    pub stderr: Option<Box<dyn Write>>, // Redirected stderr writer, None means use caller provided writer
 }
 
 impl Default for Pipeline {
     fn default() -> Self {
         Self {
             commands: Default::default(),
-            stdout: Box::new(stdout()),
-            stderr: Box::new(stderr()),
+            stdout: None,
+            stderr: None,
         }
     }
 }

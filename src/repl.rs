@@ -11,21 +11,39 @@ pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &m
     // Read
     loop {
         match reader.read_line(&mut buf) {
-            Ok(0) => break, // EOF reached
+            Ok(0) => break,  // EOF reached
             Err(_) => break, // Error reading
 
             // Normal line
             // TODO: check EOF reached in the buffer too?
             Ok(_) => {
                 match input::parse_input(buf.trim()) {
-                    Ok(mut pipeline) => {
+                    Ok(pipeline) => {
                         // Eval
                         let output = eval_pipeline(&pipeline);
 
                         // Print
-                        _ = pipeline.stdout.write(&output.stdout);
-                        _ = pipeline.stderr.write(&output.stderr);
-                        pipeline.stdout.flush().unwrap();
+                        match pipeline.stdout {
+                            Some(mut writer) => {
+                                writer.write_all(&output.stdout).unwrap();
+                                writer.flush().unwrap();
+                            }
+                            None => {
+                                stdout.write_all(&output.stdout).unwrap();
+                                stdout.flush().unwrap();
+                            }
+                        }
+
+                        match pipeline.stderr {
+                            Some(mut writer) => {
+                                writer.write_all(&output.stderr).unwrap();
+                                writer.flush().unwrap();
+                            }
+                            None => {
+                                stderr.write_all(&output.stderr).unwrap();
+                                stderr.flush().unwrap();
+                            }
+                        }
                     }
                     Err(e) => {
                         let mut s = e.to_string();
@@ -73,8 +91,6 @@ fn eval_cmd(cmd: &str, args: ArgsSlice, pipe_output: Option<Output>) -> Output {
 }
 
 // Claude unit tests >:)
-// TODO: rewrite start_repl such that it uses the input stdout+stderr in the pipeline. This was
-// such an incredibly difficult rewrite that i gave up for now. These tests won't work until then.
 #[cfg(test)]
 mod tests {
     use super::*;
