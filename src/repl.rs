@@ -11,8 +11,11 @@ pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &m
     // Read
     loop {
         match reader.read_line(&mut buf) {
-            // TODO: check EOF reached in the buffer too?
             Ok(0) => break, // EOF reached
+            Err(_) => break, // Error reading
+
+            // Normal line
+            // TODO: check EOF reached in the buffer too?
             Ok(_) => {
                 match input::parse_input(buf.trim()) {
                     Ok(mut pipeline) => {
@@ -36,7 +39,6 @@ pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &m
                 _ = stdout.write(b"$ ");
                 stdout.flush().unwrap();
             }
-            Err(_) => break, // Error reading
         }
     }
 }
