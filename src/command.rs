@@ -130,6 +130,7 @@ pub fn spawn_ext_cmd(cmd: &str, args: ArgsSlice, pipe_output: Option<Output>) ->
     if pipe_output.is_none() {
         return Ok(std::process::Command::new(cmd)
             .args(args)
+            .stdout(Stdio::piped())
             .spawn()?
             .wait_with_output()?
             .into());
