@@ -6,22 +6,18 @@ use crate::input::{self, ArgsSlice};
 pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &mut impl Write) {
     // Init
     let mut buf = String::new();
-    // Prompt
-    _ = stdout.write(b"$ ");
-    stdout.flush().unwrap();
-
     // Read
     loop {
+        // Prompt
+        _ = stdout.write(b"$ ");
+        stdout.flush().unwrap();
+
         match reader.read_line(&mut buf) {
             Ok(0) => break,  // EOF reached
             Err(_) => break, // Error reading
 
             // Normal line
             Ok(_) => {
-                // Prompt
-                _ = stdout.write(b"$ ");
-                stdout.flush().unwrap();
-
                 match input::parse_input(buf.trim()) {
                     Ok(pipeline) => {
                         // Eval
@@ -150,7 +146,7 @@ mod tests {
         start_repl(&mut reader, &mut stdout, &mut stderr);
         let stdout_s = String::from_utf8(stdout).unwrap();
         let stderr_s = String::from_utf8(stderr).unwrap();
-        assert_eq!(stdout_s, "$ $ hello world\n"); // one prompt '$ ' for the start of repl loop, second for after first read line
+        assert_eq!(stdout_s, "$ hello world\n"); // one prompt '$ ' for the start of repl loop, second for after first read line
         assert!(stderr_s.is_empty(), "Expected no error here");
     }
 
