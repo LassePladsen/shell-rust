@@ -94,7 +94,9 @@ fn eval_cmd(cmd: &str, args: ArgsSlice, pipe_output: Option<Output>) -> Output {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
+    use std::{io::Cursor, sync::mpsc, thread, time::Duration};
+
+    const TMP_FILE: &str = "/tmp/12138791273217897832798623798631.something";
 
     fn get_repl_output(input: &[u8]) -> (String, String) {
         let mut reader = Cursor::new(input);
@@ -193,5 +195,27 @@ mod tests {
     #[test]
     fn repl_double_pipe() {
         assert_repl_output("echo hello | cat | wc --bytes\n", "6\n", "");
+    }
+
+    #[test]
+    fn repl_blocking_output() {
+        get_repl_output(format!("echo hei > {TMP_FILE}").as_bytes());
+
+        let mut reader: Cursor<Vec<u8>> = Cursor::new(format!("tail -f {TMP_FILE}\n").into());
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+
+        let (tx, rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            start_repl(&mut reader, &mut stdout, &mut stderr);
+            tx.send((stdout, stderr)).ok();
+        });
+
+        // Wait with timeout
+        let timeout = 50;
+        assert!(
+            rx.recv_timeout(Duration::from_millis(timeout)) == Err(mpsc::RecvTimeoutError::Timeout)
+        );
     }
 }
