@@ -103,14 +103,15 @@ pub fn run(cmd: &str, args: &[String], pipe_output: Option<Output>) -> Result<Ou
 
     // Run external command
     if let Ok(paths) = env::get_paths()
-        && let Ok(output) = spawn_ext_cmd(cmd, args, paths, pipe_output)
+        && cmd_in_paths(cmd, &paths)
     {
+        let output = spawn_ext_cmd(cmd, args, paths, pipe_output)?;
         return Ok(output);
     }
     Ok(notfound(cmd))
 }
 
-pub fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
+pub fn get_cmd_path(cmd: &str, paths: &[String]) -> Option<String> {
     for path in paths {
         let fullpath = format!("{path}/{cmd}");
         let Ok(executable) = file::is_executable_file(&fullpath) else {
@@ -123,7 +124,7 @@ pub fn get_cmd_path(cmd: &str, paths: Vec<String>) -> Option<String> {
     None
 }
 
-pub fn cmd_in_paths(cmd: &str, paths: Vec<String>) -> bool {
+pub fn cmd_in_paths(cmd: &str, paths: &[String]) -> bool {
     get_cmd_path(cmd, paths).is_some()
 }
 
@@ -133,9 +134,9 @@ pub fn spawn_ext_cmd(
     paths: Vec<String>,
     pipe_output: Option<Output>,
 ) -> Result<Output> {
-    if !cmd_in_paths(cmd, paths) {
+    if !cmd_in_paths(cmd, &paths) {
         return Err(CommandError::CommandNotFound(format!(
-            "Command {cmd} not found in path."
+            "External command {cmd} failed, not found in path.\n"
         )));
     }
 
@@ -154,7 +155,9 @@ pub fn spawn_ext_cmd(
     match child.stdin.take() {
         Some(mut stdin) => {
             _ = stdin.write(&pipe_output.stdout);
-            Ok(child.wait_with_output()?.into())
+            drop(stdin); // NOTE: necessarry for child process to exit
+            let output = child.wait_with_output()?;
+            Ok(output.into())
         }
         None => Err(CommandError::PipeError(
             "Could not write piped output to new command child stdin".to_string(),

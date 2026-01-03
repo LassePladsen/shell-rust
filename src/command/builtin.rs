@@ -59,7 +59,7 @@ fn type_(args: ArgsSlice) -> Output {
     }
 
     if let Ok(paths) = env::get_paths()
-        && let Some(path) = super::get_cmd_path(cmd, paths)
+        && let Some(path) = super::get_cmd_path(cmd, &paths)
     {
         return Output {
             stdout: format!("{cmd} is {path}\n").into(),

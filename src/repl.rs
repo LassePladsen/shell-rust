@@ -176,4 +176,9 @@ mod tests {
     fn repl_nonexisting_cmd() {
         assert_repl_output("non_existing\n", "", "non_existing: not found\n");
     }
+
+    #[test]
+    fn repl_pipe() {
+        assert_repl_output("echo hello | cat\n", "hello\n", "");
+    }
 }
