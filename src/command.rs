@@ -105,7 +105,7 @@ pub fn run(cmd: &str, args: &[String], pipe_output: Option<Output>) -> Result<Ou
     if let Ok(paths) = env::get_paths()
         && cmd_in_paths(cmd, &paths)
     {
-        let output = spawn_ext_cmd(cmd, args, paths, pipe_output)?;
+        let output = spawn_ext_cmd(cmd, args, pipe_output)?;
         return Ok(output);
     }
     Ok(notfound(cmd))
@@ -128,18 +128,7 @@ pub fn cmd_in_paths(cmd: &str, paths: &[String]) -> bool {
     get_cmd_path(cmd, paths).is_some()
 }
 
-pub fn spawn_ext_cmd(
-    cmd: &str,
-    args: ArgsSlice,
-    paths: Vec<String>,
-    pipe_output: Option<Output>,
-) -> Result<Output> {
-    if !cmd_in_paths(cmd, &paths) {
-        return Err(CommandError::CommandNotFound(format!(
-            "External command {cmd} failed, not found in path.\n"
-        )));
-    }
-
+pub fn spawn_ext_cmd(cmd: &str, args: ArgsSlice, pipe_output: Option<Output>) -> Result<Output> {
     if pipe_output.is_none() {
         return Ok(std::process::Command::new(cmd).args(args).output()?.into());
     }
