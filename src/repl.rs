@@ -4,7 +4,11 @@ use crate::command::{Output, Pipeline, run};
 use crate::input::{self, ArgsSlice};
 
 pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &mut impl Write) {
+    // Init
     let mut buf = String::new();
+    // Prompt
+    _ = stdout.write(b"$ ");
+    stdout.flush().unwrap();
 
     // Read
     loop {
@@ -124,6 +128,18 @@ mod tests {
             stderr.replace("\n", "\\n"),
             result_stderr.replace("\n", "\\n")
         );
+    }
+
+    #[test]
+    fn repl_prompt() {
+        let mut reader = Cursor::new("");
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        start_repl(&mut reader, &mut stdout, &mut stderr);
+        let stdout_s = String::from_utf8(stdout).unwrap();
+        let stderr_s = String::from_utf8(stderr).unwrap();
+        assert!(stdout_s == "$ ", "Missing prompt '$' in stdout");
+        assert!(stderr_s.is_empty(), "Should have no error with empty input");
     }
 
     #[test]
