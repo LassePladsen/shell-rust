@@ -127,13 +127,10 @@ pub fn cmd_in_paths(cmd: &str, paths: &[String]) -> bool {
 }
 
 pub fn spawn_ext_cmd(cmd: &str, args: ArgsSlice, pipe_output: Option<Output>) -> Result<Output> {
+    // TODO: support blocking outputs, like 'tail -f'. This is done by using stdout =
+    // Stdio::inhreit(), but then piping/redirecting wont work (needs stdout = Stdio::piped())
     if pipe_output.is_none() {
-        return Ok(std::process::Command::new(cmd)
-            .args(args)
-            .stdout(Stdio::piped())
-            .spawn()?
-            .wait_with_output()?
-            .into());
+        return Ok(std::process::Command::new(cmd).args(args).output()?.into());
     }
 
     // From here on out this is a piped command
