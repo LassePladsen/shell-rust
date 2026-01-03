@@ -143,6 +143,18 @@ mod tests {
     }
 
     #[test]
+    fn repl_prompt_and_command() {
+        let mut reader = Cursor::new("echo hello world\n");
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        start_repl(&mut reader, &mut stdout, &mut stderr);
+        let stdout_s = String::from_utf8(stdout).unwrap();
+        let stderr_s = String::from_utf8(stderr).unwrap();
+        assert_eq!(stdout_s, "$ $ hello world\n"); // one prompt '$ ' for the start of repl loop, second for after first read line
+        assert!(stderr_s.is_empty(), "Expected no error here");
+    }
+
+    #[test]
     fn repl_single_command() {
         assert_repl_output("echo 'hello world'\n", "hello world\n", "");
     }
