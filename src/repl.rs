@@ -168,9 +168,8 @@ mod tests {
     }
 
     #[test]
-    // TODO: make the program adhere to this (do error if nothing after pipe)
     fn repl_parse_error() {
-        assert_repl_output("|\n", "", "");
+        assert_repl_output("echo hei |\n", "", "Unterminated pipe\n");
     }
 
     #[test]

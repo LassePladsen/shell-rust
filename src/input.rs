@@ -1,6 +1,37 @@
-use std::{default::Default, env, fmt::Debug, fs::File, io, iter::Peekable, mem, str::Chars};
+use std::{
+    default::Default,
+    env,
+    fmt::{self, Debug, Display, Formatter},
+    fs::File,
+    io,
+    iter::Peekable,
+    mem,
+    str::Chars,
+};
 
 use crate::command::{Command, Pipeline};
+
+#[derive(Debug)]
+pub enum ParseError {
+    Io(io::Error),
+    UnterminatedPipe,
+}
+pub type ParseResult<T> = Result<T, ParseError>;
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ParseError::Io(err) => write!(f, "{}", err),
+            ParseError::UnterminatedPipe => write!(f, "Unterminated pipe"),
+        }
+    }
+}
+
+impl From<io::Error> for ParseError {
+    fn from(err: io::Error) -> Self {
+        ParseError::Io(err)
+    }
+}
 
 pub type Args = Vec<String>;
 pub type ArgsSlice<'a> = &'a [String];
@@ -14,7 +45,7 @@ enum Context {
 }
 
 /// Parses and resolves input in a single pass using a context system
-pub fn parse_input(input: &str) -> io::Result<Pipeline> {
+pub fn parse_input(input: &str) -> ParseResult<Pipeline> {
     let mut pipeline = Pipeline::default();
     let mut command = Command::default();
     if input.is_empty() {
@@ -69,7 +100,7 @@ fn handle_normal_context(
     context: &mut Context,
     command: &mut Command,
     pipeline: &mut Pipeline,
-) -> io::Result<()> {
+) -> ParseResult<()> {
     match ch {
         // Start new context
         '\'' => *context = Context::SingleQuote,
@@ -82,7 +113,7 @@ fn handle_normal_context(
 
         // Redirection & pipeline
         '>' => handle_redirection(chars, buf, pipeline)?,
-        '|' => pipe(chars, buf, command, pipeline, context, resolved_args),
+        '|' => pipe(chars, buf, command, pipeline, context, resolved_args)?,
 
         _ if ch.is_whitespace() => separate_token(buf, resolved_args),
         _ => buf.push(ch),
@@ -97,7 +128,12 @@ fn pipe(
     pipeline: &mut Pipeline,
     context: &mut Context,
     resolved_args: &mut Vec<String>,
-) {
+) -> ParseResult<()> {
+    // first ensure there is more text after the pipe '|' and whitespace
+    if chars.clone().count() == 0 {
+        return Err(ParseError::UnterminatedPipe);
+    }
+
     // This is the end of this command, add it to the pipeline and reset the states for the new piped command
     params.args = mem::take(resolved_args);
     pipeline.commands.push(mem::take(params));
@@ -105,6 +141,7 @@ fn pipe(
     *context = Context::Normal;
 
     chars.next();
+    Ok(())
 }
 
 fn handle_redirection(

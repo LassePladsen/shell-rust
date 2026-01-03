@@ -1,4 +1,4 @@
-use std::{env, error, fmt, fs, io, os::unix::fs::PermissionsExt};
+use std::{env, fmt, fs, io, os::unix::fs::PermissionsExt};
 
 #[derive(Debug)]
 pub enum Error {
@@ -11,15 +11,6 @@ impl fmt::Display for Error {
         match self {
             Error::Io(err) => write!(f, "{}", err),
             Error::Env(err) => write!(f, "{}", err),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            Error::Io(err) => Some(err),
-            _ => None,
         }
     }
 }
