@@ -4,10 +4,8 @@ use crate::command::{Output, Pipeline, run};
 use crate::input::{self, ArgsSlice};
 
 pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &mut impl Write) {
-    // Init
-    _ = stdout.write(b"$ ");
-    stdout.flush().unwrap();
     let mut buf = String::new();
+
     // Read
     loop {
         match reader.read_line(&mut buf) {
@@ -15,8 +13,11 @@ pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &m
             Err(_) => break, // Error reading
 
             // Normal line
-            // TODO: check EOF reached in the buffer too?
             Ok(_) => {
+                // Prompt
+                _ = stdout.write(b"$ ");
+                stdout.flush().unwrap();
+
                 match input::parse_input(buf.trim()) {
                     Ok(pipeline) => {
                         // Eval
@@ -52,10 +53,9 @@ pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &m
                         _ = stderr.write(s.as_bytes());
                     }
                 };
+
                 // Restart
                 buf.clear();
-                _ = stdout.write(b"$ ");
-                stdout.flush().unwrap();
             }
         }
     }
@@ -96,59 +96,69 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    // Somehow all output has '$' on each line even though it shouldnt be printed. My fault, it
-    // doesnt happen on cargo run
     fn get_repl_output(input: &[u8]) -> (String, String) {
         let mut reader = Cursor::new(input);
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
         start_repl(&mut reader, &mut stdout, &mut stderr);
         (
-            String::from_utf8(stdout).unwrap(),
+            // Remove the input prompt "$ " from stdout
+            String::from_utf8(stdout).unwrap().replace("$ ", ""),
             String::from_utf8(stderr).unwrap(),
         )
     }
 
+    fn assert_repl_output(input: &str, stdout: &str, stderr: &str) {
+        let (result_stdout, result_stderr) = get_repl_output(input.as_bytes());
+        assert!(
+            stdout == result_stdout,
+            "Input of '{}' expected stdout of '{}', instead got: '{}'",
+            input.replace("\n", "\\n"),
+            stdout.replace("\n", "\\n"),
+            result_stdout.replace("\n", "\\n")
+        );
+        assert!(
+            stderr == result_stderr,
+            "Input of '{}' expected stderr of '{}', instead got: '{}'",
+            input.replace("\n", "\\n"),
+            stderr.replace("\n", "\\n"),
+            result_stderr.replace("\n", "\\n")
+        );
+    }
+
     #[test]
     fn repl_single_command() {
-        let (stdout, stderr) = get_repl_output(b"echo hello\n");
-        assert_eq!(stdout, "$ hello\n$ ");
-        assert_eq!(stderr, "");
+        assert_repl_output("echo 'hello world'\n", "hello world\n", "");
     }
 
     #[test]
     fn repl_multiple_commands() {
-        let (stdout, stderr) = get_repl_output(b"echo first\necho second\n");
-        assert_eq!(stdout, "$ first\n$ second\n$ ");
-        assert_eq!(stderr, "");
+        assert_repl_output("echo first\necho second\n", "first\nsecond\n", "");
     }
 
     #[test]
     fn repl_empty_input() {
-        let (stdout, stderr) = get_repl_output(b"\n");
-        assert_eq!(stdout, "$ $ ");
-        assert_eq!(stderr, "");
+        assert_repl_output("\n", "", "");
     }
 
     #[test]
-    fn repl_type_builtint() {
-        let (stdout, stderr) = get_repl_output(b"type cd\n");
-        assert_eq!(stdout, "$ cd is a shell builtin\n");
-        assert_eq!(stderr, "");
+    fn repl_type_builtin() {
+        assert_repl_output("type cd\n", "cd is a shell builtin\n", "");
+    }
+
+    #[test]
+    fn repl_type_external() {
+        assert_repl_output("type grep\n", "grep is /usr/bin/grep\n", "");
     }
 
     #[test]
     // TODO: make the program adhere to this (do error if nothing after pipe)
     fn repl_parse_error() {
-        let (stdout, stderr) = get_repl_output(b"|\n");
-        assert_eq!(stdout, "$ ");
-        assert_eq!(stderr, "");
+        assert_repl_output("|\n", "", "");
     }
 
     #[test]
     fn repl_nonexisting_cmd() {
-        let (stdout, stderr) = get_repl_output(b"non_existing\n");
-        assert_eq!(stdout, "$ $ ");
-        assert_eq!(stderr, "non_existing: not found\n");
+        assert_repl_output("non_existing\n", "", "non_existing: not found\n");
     }
 }
