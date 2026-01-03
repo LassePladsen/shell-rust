@@ -38,20 +38,11 @@ pub struct Command {
     pub args: Args,
 }
 
+#[derive(Default)]
 pub struct Pipeline {
     pub commands: Vec<Command>,
-    pub stdout: Option<Box<dyn Write>>, // Redirected stdout writer, None means use caller provided writer
-    pub stderr: Option<Box<dyn Write>>, // Redirected stderr writer, None means use caller provided writer
-}
-
-impl Default for Pipeline {
-    fn default() -> Self {
-        Self {
-            commands: Default::default(),
-            stdout: None,
-            stderr: None,
-        }
-    }
+    pub stdout_writer: Option<Box<dyn Write>>, // Redirected stdout writer, None means use caller provided writer
+    pub stderr_writer: Option<Box<dyn Write>>, // Redirected stderr writer, None means use caller provided writer
 }
 
 impl Debug for Pipeline {

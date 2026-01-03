@@ -23,7 +23,7 @@ pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &m
                         let output = eval_pipeline(&pipeline);
 
                         // Print
-                        match pipeline.stdout {
+                        match pipeline.stdout_writer {
                             Some(mut writer) => {
                                 writer.write_all(&output.stdout).unwrap();
                                 writer.flush().unwrap();
@@ -34,7 +34,7 @@ pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &m
                             }
                         }
 
-                        match pipeline.stderr {
+                        match pipeline.stderr_writer {
                             Some(mut writer) => {
                                 writer.write_all(&output.stderr).unwrap();
                                 writer.flush().unwrap();
@@ -127,6 +127,13 @@ mod tests {
     fn repl_empty_input() {
         let (stdout, stderr) = get_repl_output(b"\n");
         assert_eq!(stdout, "$ $ ");
+        assert_eq!(stderr, "");
+    }
+
+    #[test]
+    fn repl_type_builtint() {
+        let (stdout, stderr) = get_repl_output(b"type cd\n");
+        assert_eq!(stdout, "$ cd is a shell builtin\n");
         assert_eq!(stderr, "");
     }
 
