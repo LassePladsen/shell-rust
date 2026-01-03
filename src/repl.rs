@@ -146,7 +146,7 @@ mod tests {
         start_repl(&mut reader, &mut stdout, &mut stderr);
         let stdout_s = String::from_utf8(stdout).unwrap();
         let stderr_s = String::from_utf8(stderr).unwrap();
-        assert_eq!(stdout_s, "$ hello world\n"); // one prompt '$ ' for the start of repl loop, second for after first read line
+        assert_eq!(stdout_s, "$ hello world\n$ "); // one prompt '$ ' for the start of repl loop, second for after first read line
         assert!(stderr_s.is_empty(), "Expected no error here");
     }
 
@@ -188,5 +188,10 @@ mod tests {
     #[test]
     fn repl_pipe() {
         assert_repl_output("echo hello | cat\n", "hello\n", "");
+    }
+
+    #[test]
+    fn repl_double_pipe() {
+        assert_repl_output("echo hello | cat | wc --bytes\n", "6\n", "");
     }
 }

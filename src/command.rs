@@ -149,6 +149,8 @@ pub fn spawn_ext_cmd(
     let mut child = std::process::Command::new(cmd)
         .args(args)
         .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?;
 
     // Write output from previous command in pipeline to child stdin
