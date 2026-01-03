@@ -68,7 +68,6 @@ type Result<T> = std::result::Result<T, CommandError>;
 pub enum CommandError {
     Io(io::Error),
     PipeError(String),
-    CommandNotFound(String),
 }
 
 impl Display for CommandError {
@@ -76,7 +75,6 @@ impl Display for CommandError {
         match self {
             CommandError::Io(err) => write!(f, "{}", err),
             CommandError::PipeError(err) => write!(f, "{}", err),
-            CommandError::CommandNotFound(err) => write!(f, "{}", err),
         }
     }
 }
