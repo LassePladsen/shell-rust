@@ -6,12 +6,12 @@ use crate::input::{self, ArgsSlice};
 pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &mut impl Write) {
     // Init
     let mut buf = String::new();
-    // Read
     loop {
         // Prompt
         _ = stdout.write(b"$ ");
         stdout.flush().unwrap();
 
+        // Read
         match reader.read_line(&mut buf) {
             Ok(0) => break,  // EOF reached
             Err(_) => break, // Error reading
