@@ -6,56 +6,53 @@ use crate::input::{self, ArgsSlice};
 pub fn start_repl(reader: &mut impl BufRead, stdout: &mut impl Write, stderr: &mut impl Write) {
     // Init
     let mut buf = String::new();
+
     loop {
+        buf.clear();
+
         // Prompt
         _ = stdout.write(b"$ ");
         stdout.flush().unwrap();
 
         // Read
-        match reader.read_line(&mut buf) {
-            Ok(0) => break,  // EOF reached
-            Err(_) => break, // Error reading
+        let bytes_read = reader.read_line(&mut buf);
+        // Stop loop on reached EOF or error reading
+        if bytes_read.is_err() || bytes_read.unwrap() == 0 {
+            break;
+        }
 
-            // Normal line
-            Ok(_) => {
-                match input::parse_input(buf.trim()) {
-                    Ok(pipeline) => {
-                        // Eval
-                        let output = eval_pipeline(&pipeline);
+        let pipeline = input::parse_input(buf.trim());
+        if let Err(e) = pipeline {
+            // Print err
+            let mut s = e.to_string();
+            s.push('\n');
+            _ = stderr.write(s.as_bytes());
+            continue;
+        }
 
-                        // Print
-                        match pipeline.stdout_writer {
-                            Some(mut writer) => {
-                                writer.write_all(&output.stdout).unwrap();
-                                writer.flush().unwrap();
-                            }
-                            None => {
-                                stdout.write_all(&output.stdout).unwrap();
-                                stdout.flush().unwrap();
-                            }
-                        }
+        // Eval
+        let pipeline = pipeline.unwrap();
+        let output = eval_pipeline(&pipeline);
 
-                        match pipeline.stderr_writer {
-                            Some(mut writer) => {
-                                writer.write_all(&output.stderr).unwrap();
-                                writer.flush().unwrap();
-                            }
-                            None => {
-                                stderr.write_all(&output.stderr).unwrap();
-                                stderr.flush().unwrap();
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        let mut s = e.to_string();
-                        s.push('\n');
-                        // Print
-                        _ = stderr.write(s.as_bytes());
-                    }
-                };
-
-                // Restart
-                buf.clear();
+        // Print
+        match pipeline.stdout_writer {
+            Some(mut writer) => {
+                writer.write_all(&output.stdout).unwrap();
+                writer.flush().unwrap();
+            }
+            None => {
+                stdout.write_all(&output.stdout).unwrap();
+                stdout.flush().unwrap();
+            }
+        }
+        match pipeline.stderr_writer {
+            Some(mut writer) => {
+                writer.write_all(&output.stderr).unwrap();
+                writer.flush().unwrap();
+            }
+            None => {
+                stderr.write_all(&output.stderr).unwrap();
+                stderr.flush().unwrap();
             }
         }
     }
